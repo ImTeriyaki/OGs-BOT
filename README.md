@@ -30,7 +30,8 @@ Support
 
 For questions, concerns, or support regarding OGs Expanded Bot, contact:
 
-[YOUR SUPPORT CONTACT]
+@imnotrainbow
+@xuvfii
 
 Disclaimer
 
