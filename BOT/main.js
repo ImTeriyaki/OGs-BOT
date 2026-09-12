@@ -1,8 +1,8 @@
 const {
   Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType,
 } = require('discord.js');
+require('dotenv').config();
 const fs = require('fs');
-const config = require('./config.json');
 const { commands } = require('./commands.js');
 
 /* ═══════════════ STORAGE ═══════════════ */
@@ -319,4 +319,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 /* ═══════════════ LOGIN ═══════════════ */
-client.login(config.token);
+client.login(process.env.DISCORD_TOKEN);
