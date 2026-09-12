@@ -77,36 +77,33 @@ const cmdPages = [
 
 function pageEmbed(i) {
   const p = cmdPages[i];
-  return new EmbedBuilder()
-    .setTitle(`${p.emoji} ${p.name} Commands`)
-    .setDescription(p.commands.map(c => `**/${c.n}** — ${c.d}\n> \`${c.u}\``).join('\n\n'))
+  const embed = new EmbedBuilder()
+    .setTitle(`${p.emoji}  ${p.name} Commands`)
     .setColor(colors.main)
-    .setFooter({ text: `Category ${i + 1}/${cmdPages.length} • Page ${i + 1} of ${cmdPages.length} • ${p.commands.length} commands` })
+    .setFooter({ text: `Page ${i + 1} of ${cmdPages.length} • ${p.commands.length} commands` })
     .setTimestamp();
+
+  /* one inline field per command — bolded name, indented description + usage.
+     a blank full-width field is inserted every 3 commands so rows of 3
+     inline fields get clear vertical spacing instead of crowding together. */
+  p.commands.forEach((c, x) => {
+    embed.addFields({ name: `**/${c.n}**`, value: `> ${c.d}\n> \`${c.u}\``, inline: true });
+    if ((x + 1) % 3 === 0 && x + 1 !== p.commands.length) {
+      embed.addFields({ name: '​', value: '​', inline: false });
+    }
+  });
+
+  return embed;
 }
 
-function pageRows(page) {
-  const indexRow = row(
-    new ButtonBuilder().setCustomId('hp:prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('hp:home').setLabel('🏠 Categories').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('hp:next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary),
-  );
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId('hp:menu')
-    .setPlaceholder('Jump to a category…')
-    .addOptions(cmdPages.map((p, x) => ({
-      label: p.name, value: String(x), emoji: p.emoji,
-      default: x === page,
-    })));
-  const closeRow = row(new ButtonBuilder().setCustomId('hp:close').setLabel('✖ Close').setStyle(ButtonStyle.Danger));
-  return [row(menu), indexRow, closeRow];
-}
-
-function categoryMenu() {
-  return row(new StringSelectMenuBuilder()
-    .setCustomId('hp:menu')
-    .setPlaceholder('Select a category to browse…')
-    .addOptions(cmdPages.map((p, x) => ({ label: p.name, value: String(x), emoji: p.emoji, description: `${p.commands.length} commands` }))));
+/* nav row: Prev only if not first page, Close always, Next only if not last page —
+   so the first/last page get 2 buttons and every page in between gets 3 */
+function pageRow(page) {
+  const buttons = [];
+  if (page > 0) buttons.push(new ButtonBuilder().setCustomId('hp:prev').setLabel('◀ Prev').setStyle(ButtonStyle.Primary));
+  buttons.push(new ButtonBuilder().setCustomId('hp:close').setLabel('✖ Close').setStyle(ButtonStyle.Danger));
+  if (page < cmdPages.length - 1) buttons.push(new ButtonBuilder().setCustomId('hp:next').setLabel('Next ▶').setStyle(ButtonStyle.Success));
+  return [row(...buttons)];
 }
 
 /* ═══════════════════════════ COMMANDS ═══════════════════════════ */
@@ -118,25 +115,14 @@ const commands = [
       .setName('commands')
       .setDescription('📋 Browse every command — descriptions, usage, categories & pages'),
     ns: 'hp',
-    run: (i) => i.reply({ embeds: [new EmbedBuilder()
-      .setTitle('📖 Command Browser')
-      .setDescription('Pick a category below to see every command, what it does and how to use it.')
-      .setColor(colors.main)], components: [categoryMenu()], ephemeral: true }),
-    async onSelect(i) {
-      const page = parseInt(i.values[0], 10);
-      return i.update({ embeds: [pageEmbed(page)], components: pageRows(page) });
-    },
+    run: (i) => i.reply({ embeds: [pageEmbed(0)], components: pageRow(0), ephemeral: true }),
     async onButton(i) {
       const action = i.customId.split(':')[1];
       if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
-      if (action === 'menu') return;
-      let page = 0;
-      if (action === 'prev' || action === 'next') {
-        const current = i.message.components[1].components[1].customId; /* not used; derive from embed footer */
-        page = parseInt((i.message.embeds[0]?.footer?.text ?? '').match(/^Category (\d+)/)?.[1] ?? 1, 10) - 1;
-        page = action === 'prev' ? (page <= 0 ? cmdPages.length - 1 : page - 1) : (page >= cmdPages.length - 1 ? 0 : page + 1);
-      }
-      return i.update({ embeds: [pageEmbed(page)], components: pageRows(page) });
+
+      const current = parseInt((i.message.embeds[0]?.footer?.text ?? '').match(/^Page (\d+)/)?.[1] ?? 1, 10) - 1;
+      const page = Math.max(0, Math.min(cmdPages.length - 1, action === 'prev' ? current - 1 : current + 1));
+      return i.update({ embeds: [pageEmbed(page)], components: pageRow(page) });
     },
   },
 
@@ -577,6 +563,7 @@ const commands = [
 
   /* ─────────────── MODERATION ─────────────── */
 
+  /* /purge — bulk delete messages */
   {
     data: new SlashCommandBuilder()
       .setName('purge')
@@ -595,6 +582,7 @@ const commands = [
     },
   },
 
+  /* /slowmode — set channel slowmode */
   {
     data: new SlashCommandBuilder()
       .setName('slowmode')
@@ -608,6 +596,7 @@ const commands = [
     },
   },
 
+  /* /lock — lock this channel */
   {
     data: new SlashCommandBuilder()
       .setName('lock')
@@ -620,6 +609,7 @@ const commands = [
     },
   },
 
+  /* /unlock — unlock this channel */
   {
     data: new SlashCommandBuilder()
       .setName('unlock')
@@ -631,6 +621,7 @@ const commands = [
     },
   },
 
+  /* /kick — kick a member */
   {
     data: new SlashCommandBuilder()
       .setName('kick')
@@ -651,6 +642,7 @@ const commands = [
     },
   },
 
+  /* /ban — ban a member */
   {
     data: new SlashCommandBuilder()
       .setName('ban')
@@ -673,6 +665,7 @@ const commands = [
     },
   },
 
+  /* /unban — unban a user by ID */
   {
     data: new SlashCommandBuilder()
       .setName('unban')
@@ -688,6 +681,7 @@ const commands = [
     },
   },
 
+  /* /bans — list all banned users */
   {
     data: new SlashCommandBuilder()
       .setName('bans')
@@ -703,6 +697,7 @@ const commands = [
     },
   },
 
+  /* /timeout — timeout a member */
   {
     data: new SlashCommandBuilder()
       .setName('timeout')
@@ -721,6 +716,7 @@ const commands = [
     },
   },
 
+  /* /untimeout — remove a member's timeout */
   {
     data: new SlashCommandBuilder()
       .setName('untimeout')
@@ -735,6 +731,7 @@ const commands = [
     },
   },
 
+  /* /warn — warn a member */
   {
     data: new SlashCommandBuilder()
       .setName('warn')
@@ -754,6 +751,7 @@ const commands = [
     },
   },
 
+  /* /warnings — view a member's warnings */
   {
     data: new SlashCommandBuilder()
       .setName('warnings')
@@ -772,6 +770,7 @@ const commands = [
     },
   },
 
+  /* /clearwarnings — clear a member's warnings */
   {
     data: new SlashCommandBuilder()
       .setName('clearwarnings')
@@ -788,6 +787,7 @@ const commands = [
     },
   },
 
+  /* /roleadd — give a role */
   {
     data: new SlashCommandBuilder()
       .setName('roleadd')
@@ -805,6 +805,7 @@ const commands = [
     },
   },
 
+  /* /roleremove — remove a role */
   {
     data: new SlashCommandBuilder()
       .setName('roleremove')
@@ -822,6 +823,7 @@ const commands = [
     },
   },
 
+  /* /nickname — change a nickname */
   {
     data: new SlashCommandBuilder()
       .setName('nickname')
@@ -838,6 +840,7 @@ const commands = [
     },
   },
 
+  /* /dm — DM a member as the bot */
   {
     data: new SlashCommandBuilder()
       .setName('dm')
@@ -855,6 +858,7 @@ const commands = [
 
   /* ─────────────── INFO ─────────────── */
 
+  /* /serverinfo — server information card */
   {
     data: new SlashCommandBuilder().setName('serverinfo').setDescription('📊 Server information'),
     async run(i) {
@@ -878,6 +882,7 @@ const commands = [
     },
   },
 
+  /* /userinfo — information about a member */
   {
     data: new SlashCommandBuilder()
       .setName('userinfo')
@@ -908,6 +913,7 @@ const commands = [
     },
   },
 
+  /* /roleinfo — details about a role */
   {
     data: new SlashCommandBuilder()
       .setName('roleinfo')
@@ -931,6 +937,7 @@ const commands = [
     },
   },
 
+  /* /channelinfo — details about a channel */
   {
     data: new SlashCommandBuilder()
       .setName('channelinfo')
@@ -952,6 +959,7 @@ const commands = [
     },
   },
 
+  /* /avatar — show a member's avatar */
   {
     data: new SlashCommandBuilder()
       .setName('avatar')
@@ -967,6 +975,7 @@ const commands = [
     },
   },
 
+  /* /servericon — show the server icon */
   {
     data: new SlashCommandBuilder().setName('servericon').setDescription('🖼️ Show the server icon'),
     async run(i) {
@@ -1067,6 +1076,7 @@ const commands = [
     },
   },
 
+  /* /botinfo — statistics about this bot */
   {
     data: new SlashCommandBuilder().setName('botinfo').setDescription('🤖 Bot information'),
     async run(i) {
@@ -1086,6 +1096,7 @@ const commands = [
     },
   },
 
+  /* /stats — live server activity stats */
   {
     data: new SlashCommandBuilder().setName('stats').setDescription('📈 Server stats'),
     async run(i) {
@@ -1106,6 +1117,7 @@ const commands = [
     },
   },
 
+  /* /boosts — boost status and perks */
   {
     data: new SlashCommandBuilder().setName('boosts').setDescription('🚀 Boost status'),
     async run(i) {
@@ -1120,6 +1132,7 @@ const commands = [
     },
   },
 
+  /* /snipe — last deleted message in this channel */
   {
     data: new SlashCommandBuilder().setName('snipe').setDescription('🎯 Last deleted message in this channel')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -1137,6 +1150,7 @@ const commands = [
     },
   },
 
+  /* /editsnipe — last edited message in this channel */
   {
     data: new SlashCommandBuilder().setName('editsnipe').setDescription('✏️ Last edited message in this channel')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -1158,6 +1172,7 @@ const commands = [
 
   /* ─────────────── UTILITY ─────────────── */
 
+  /* /say — make the bot say something */
   {
     data: new SlashCommandBuilder()
       .setName('say')
@@ -1172,6 +1187,7 @@ const commands = [
     },
   },
 
+  /* /remind — set a personal reminder */
   {
     data: new SlashCommandBuilder()
       .setName('remind')
@@ -1189,6 +1205,7 @@ const commands = [
     },
   },
 
+  /* /poll — create a reaction poll */
   {
     data: new SlashCommandBuilder()
       .setName('poll')
@@ -1221,6 +1238,7 @@ const commands = [
     },
   },
 
+  /* /calculator — evaluate a math expression */
   {
     data: new SlashCommandBuilder()
       .setName('calculator')
@@ -1243,6 +1261,7 @@ const commands = [
     },
   },
 
+  /* /inrole — list members with a role */
   {
     data: new SlashCommandBuilder()
       .setName('inrole')
@@ -1263,6 +1282,7 @@ const commands = [
     },
   },
 
+  /* /channelcreate — create a text or voice channel */
   {
     data: new SlashCommandBuilder()
       .setName('channelcreate')
@@ -1281,6 +1301,7 @@ const commands = [
     },
   },
 
+  /* /rolecreate — create a role */
   {
     data: new SlashCommandBuilder()
       .setName('rolecreate')
@@ -1301,6 +1322,7 @@ const commands = [
     },
   },
 
+  /* /ping — bot latency */
   {
     data: new SlashCommandBuilder().setName('ping').setDescription('🏓 Bot latency'),
     async run(i) {
@@ -1316,6 +1338,7 @@ const commands = [
     },
   },
 
+  /* /uptime — how long the bot has been running */
   {
     data: new SlashCommandBuilder().setName('uptime').setDescription('⏱️ Bot uptime'),
     async run(i) {
@@ -1323,6 +1346,7 @@ const commands = [
     },
   },
 
+  /* /invite — get the bot invite link */
   {
     data: new SlashCommandBuilder().setName('invite').setDescription('🔗 Invite the bot'),
     async run(i) {
