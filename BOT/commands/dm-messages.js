@@ -11,7 +11,7 @@ function registerDmMessages(client, ctx) {
       const w = g?.welcome;
       if (!w?.enabled || !w.dmUser) return;
 
-      const text = (w.message ?? 'Welcome to {server}!')
+      const text = (w.dmMessage ?? w.message ?? 'Welcome to {server}!')
         .replaceAll('{user}', `<@${member.id}>`)
         .replaceAll('{username}', member.user.username)
         .replaceAll('{server}', member.guild.name)

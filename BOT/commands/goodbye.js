@@ -1,9 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
-const { colors, row, menu, MSG_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
-
-/* select-option values are indexes into this, not the raw "title|message" text —
-   that text can exceed Discord's 100-char option-value limit and get silently truncated */
-const gbyeTemplates = () => Object.entries(MSG_TEMPLATES).filter(([k]) => k.startsWith('🚪'));
+const { colors, row, menu, GOODBYE_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -20,7 +16,7 @@ module.exports = {
         new ButtonBuilder().setCustomId('gbye:close').setLabel('Close').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
       ),
       row(menu('gbye:template', '📝 Pick a goodbye template…',
-        gbyeTemplates().map(([, name], idx) => ({ label: name, value: String(idx), emoji: '📝' })))),
+        GOODBYE_TEMPLATES.map((t, idx) => ({ label: t.name, value: String(idx), emoji: '📝' })))),
       row(menu('gbye:color', '🎨 Pick an embed color…',
         MSG_COLORS.map(c => ({ label: c.label, value: c.hex, emoji: '🎨', default: c.hex === s.color })))),
       msgChannelRow('gbye', i, s),
@@ -54,11 +50,10 @@ module.exports = {
     const g = ctx.guild(i.guildId);
     msgState(g, 'goodbye');
     if (i.customId === 'gbye:template') {
-      const entry = gbyeTemplates()[parseInt(i.values[0], 10)];
-      if (entry) {
-        const sep = entry[0].indexOf('|');
-        g.goodbye.title = entry[0].slice(0, sep);
-        g.goodbye.message = entry[0].slice(sep + 1);
+      const t = GOODBYE_TEMPLATES[parseInt(i.values[0], 10)];
+      if (t) {
+        g.goodbye.title = t.title;
+        g.goodbye.message = t.message;
       }
     }
     if (i.customId === 'gbye:color') g.goodbye.color = i.values[0];

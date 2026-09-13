@@ -37,16 +37,22 @@ function formatDuration(milliseconds) {
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-/* ═══════════════════════════ welcome/goodbye builder data (shared by welcome.js, goodbye.js, rolecreate.js) ═══════════════════════════ */
-const MSG_TEMPLATES = {
-  '👋 Welcome!|Welcome to {server}, {user}! You are member #{membercount}.': 'Classic',
-  '🎉 Welcome aboard!|Hey {user}, welcome to **{server}**! Make yourself at home — you are member #{membercount}.': 'Friendly',
-  '✨ A new member appears|{user} just joined **{server}**. Say hi!': 'Fun',
-  '🏰 Welcome to the kingdom|Greetings {user}. You are the **{membercount}**th member of {server}.': 'Fantasy',
-  '🚪 Goodbye|{username} left {server}.': 'Classic',
-  '🚪 We\'ll miss you|**{username}** has left the server. Member count is now {membercount}.': 'Friendly',
-  '💨 Another one gone|{username} vanished into the void.': 'Fun',
-};
+/* ═══════════════════════════ welcome/goodbye builder data (shared by welcome.js, goodbye.js) ═══════════════════════════
+   Kept as two separate, explicit lists rather than one object filtered by emoji prefix — that
+   filter used to misfile "💨 Another one gone" (a goodbye template) into welcome's dropdown
+   too, since it doesn't start with 🚪, leaving welcome with two options both labeled "Fun"
+   and goodbye missing its own "Fun" template entirely. */
+const WELCOME_TEMPLATES = [
+  { name: 'Classic', title: '👋 Welcome!', message: 'Welcome to {server}, {user}! You are member #{membercount}.' },
+  { name: 'Friendly', title: '🎉 Welcome aboard!', message: 'Hey {user}, welcome to **{server}**! Make yourself at home — you are member #{membercount}.' },
+  { name: 'Fun', title: '✨ A new member appears', message: '{user} just joined **{server}**. Say hi!' },
+  { name: 'Fantasy', title: '🏰 Welcome to the kingdom', message: 'Greetings {user}. You are the **{membercount}**th member of {server}.' },
+];
+const GOODBYE_TEMPLATES = [
+  { name: 'Classic', title: '🚪 Goodbye', message: '{username} left {server}.' },
+  { name: 'Friendly', title: '🚪 We\'ll miss you', message: '**{username}** has left the server. Member count is now {membercount}.' },
+  { name: 'Fun', title: '💨 Another one gone', message: '{username} vanished into the void.' },
+];
 const MSG_COLORS = [
   { label: 'Blurple', hex: '#5865F2' }, { label: 'Green', hex: '#57F287' },
   { label: 'Red', hex: '#ED4245' }, { label: 'Yellow', hex: '#FEE75C' },
@@ -58,6 +64,7 @@ const msgDefaults = (type) => ({
   enabled: false, channelId: null,
   title: type === 'welcome' ? '👋 Welcome!' : '🚪 Goodbye',
   message: type === 'welcome' ? 'Welcome to {server}, {user}!' : '{username} left {server}.',
+  dmMessage: type === 'welcome' ? 'Welcome to {server}, {user}!' : '{username} left {server}.',
   color: type === 'welcome' ? '#5865F2' : '#ED4245',
   showAvatar: true, showMemberCount: false, dmUser: false,
 });
@@ -97,5 +104,5 @@ function msgChannelRow(ns, i, s) {
 
 module.exports = {
   colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration,
-  MSG_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
+  WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
 };

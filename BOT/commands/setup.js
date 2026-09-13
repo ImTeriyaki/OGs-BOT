@@ -45,7 +45,8 @@ function setupEmbed(i, g) {
       + `🚪 **Goodbye** — ${gb.channelId ? `<#${gb.channelId}>` : '*not set*'} (${gb.enabled ? 'enabled' : 'disabled'})\n`
       + `🍯 **Honeypot** — Trap: ${h.channelIds?.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*not set*'} (${h.enabled ? 'deployed' : 'disabled'}) • Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}\n`
       + `⏩ **Auto-Forward** — ${af.routes?.length ? `${af.routes.length} route(s)` : '*not set*'} (${af.enabled ? 'enabled' : 'disabled'})\n`
-      + `🔔 **Online Alerts** — ${g.onlineChannelId ? `<#${g.onlineChannelId}>` : '*not set*'}`,
+      + `🔔 **Online Alerts** — ${g.onlineChannelId ? `<#${g.onlineChannelId}>` : '*not set*'}\n`
+      + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}`,
     )
     .setColor(colors.main)
     .setFooter({ text: 'Pick a feature below — you can configure them in any order' });
@@ -69,6 +70,7 @@ function dashboardPanel() {
     ),
     row(
       new ButtonBuilder().setCustomId('setup:ping').setLabel('🔔 Online Alerts').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setup:invite').setLabel('🔗 Invite Link').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:close').setLabel('✖️ Close').setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -229,6 +231,13 @@ module.exports = {
         embeds: [],
         components: [pickOrCreatePanel('setup:pingPick', 'setup:pingCreate', '✨ Create #bot-status'), navRow()],
       });
+    }
+    if (action === 'invite') {
+      const modal = new ModalBuilder().setCustomId('setup:inviteModal').setTitle('Set Invite Link');
+      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Discord invite link')
+        .setStyle(TextInputStyle.Short).setMaxLength(200).setValue(g.inviteLink ?? '')
+        .setPlaceholder('https://discord.gg/yourcode').setRequired(true)));
+      return i.showModal(modal);
     }
     if (action === 'afwd') {
       return i.update({
@@ -515,6 +524,15 @@ module.exports = {
       if (!cat) return err(i, "Couldn't create the category — check my permissions.");
       const next = gbyeChannelStepView(cat.id);
       return i.update({ ...next, content: `✅ Created category \`${cat.name}\`.\n\n${next.content}` });
+    }
+    if (i.customId === 'setup:inviteModal') {
+      const link = i.fields.getTextInputValue('v').trim();
+      if (!/^https?:\/\/(www\.)?(discord\.gg|discord(app)?\.com\/invite)\/\S+$/i.test(link)) {
+        return err(i, "That doesn't look like a valid Discord invite link — expected something like `https://discord.gg/yourcode`.");
+      }
+      g.inviteLink = link;
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Invite link set to ${link}` });
     }
   },
 };

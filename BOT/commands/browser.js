@@ -45,6 +45,7 @@ const cmdPages = [
     { n: 'ping', d: 'Bot latency and API latency — button to announce here when the bot comes online.', u: '/ping' },
     { n: 'uptime', d: 'How long the bot has been running.', u: '/uptime' },
     { n: 'invite', d: 'Get the bot invite link.', u: '/invite' },
+    { n: 'serverinvite', d: 'Get this server\'s invite link — admins can set it.', u: '/serverinvite' },
     { n: 'commands', d: 'This command browser.', u: '/commands' },
   ]},
 ];

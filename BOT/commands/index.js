@@ -33,6 +33,7 @@ const rolecreate = require('./rolecreate');
 const ping = require('./ping');
 const uptime = require('./uptime');
 const invite = require('./invite');
+const serverinvite = require('./serverinvite');
 const { command: honeypotCommand, registerHoneypot } = require('./honeypot');
 const { registerDmMessages } = require('./dm-messages');
 const { command: autoforwardCommand, registerAutoForward } = require('./autoforward');
@@ -73,6 +74,7 @@ const commands = [
   ping,
   uptime,
   invite,
+  serverinvite,
   honeypotCommand,
   autoforwardCommand,
 ];
