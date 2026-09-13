@@ -1,10 +1,14 @@
+
 const {
   Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType,
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { commands, registerHoneypot, registerDmMessages } = require('./commands.js');
+const {
+  commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerAutoForward,
+} = require('./commands/index.js');
+
 
 /* ═══════════════ STORAGE ═══════════════ */
 const DB_PATH = path.join(__dirname, '..', 'data.json');
@@ -12,7 +16,7 @@ let db = fs.existsSync(DB_PATH) ? JSON.parse(fs.readFileSync(DB_PATH, 'utf8')) :
 
 function defaultGuild() {
   return {
-    welcome: {}, goodbye: {}, tickets: {}, jtc: null,
+    welcome: {}, goodbye: {}, tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {}, autoroles: [], selfroles: [],
     logsChannelId: null, counterIds: null,
   };
@@ -54,6 +58,7 @@ const ctx = {
   snipes,
   editSnipes,
   client,
+  commands,
 };
 
 /* namespace -> command (for button/modal/select routing) */
@@ -134,6 +139,20 @@ client.once(Events.ClientReady, async (readyClient) => {
 
   for (const g of readyClient.guilds.cache.values()) await registerGuild(g);
   updateCounters().catch(() => {});
+
+  /* announce coming online in every guild's configured channel (set via /ping) */
+  for (const data of Object.values(db)) {
+    if (!data.onlineChannelId) continue;
+    const channel = await readyClient.channels.fetch(data.onlineChannelId).catch(() => null);
+    if (!channel) continue;
+    await channel.send({
+      embeds: [new EmbedBuilder()
+        .setTitle('✅ Bot Online')
+        .setDescription(`${readyClient.user} just came online.`)
+        .setColor(0x57F287)
+        .setTimestamp()],
+    }).catch(() => {});
+  }
 });
 
 client.on(Events.GuildCreate, registerGuild);
@@ -192,36 +211,6 @@ client.on(Events.GuildMemberRemove, async (member) => {
   updateCounters().catch(() => {});
 });
 
-/* join-to-create voice */
-client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-  const g = store.guild(newState.guild.id);
-  const cfg = g.jtc;
-  if (!cfg?.lobbyId) return;
-
-  /* joined the lobby -> create a temp channel and move them in */
-  if (newState.channelId === cfg.lobbyId && newState.channelId !== oldState.channelId) {
-    const temp = await newState.guild.channels.create({
-      name: `🔊 ${newState.member.user.username}'s Channel`,
-      type: ChannelType.GuildVoice,
-      parent: cfg.categoryId ?? null,
-      permissionOverwrites: [
-        { id: newState.member.id, allow: ['ManageChannels', 'MoveMembers', 'MuteMembers', 'DeafenMembers'] },
-      ],
-    }).catch(() => null);
-    if (!temp) return;
-    await newState.member.voice.setChannel(temp).catch(() => temp.delete().catch(() => {}));
-  }
-
-  /* empty temp channel -> delete */
-  if (oldState.channelId
-    && oldState.channelId !== cfg.lobbyId
-    && oldState.channel?.parentId === cfg.categoryId
-    && oldState.channel.members.size === 0
-    && oldState.channel.name.endsWith("'s Channel")) {
-    await oldState.channel.delete().catch(() => {});
-  }
-});
-
 /* snipe storage */
 client.on(Events.MessageDelete, (msg) => {
   if (!msg.guild || msg.author?.bot) return;
@@ -269,6 +258,12 @@ registerHoneypot(client, ctx);
 /* welcome-DM engine also lives in commands.js — sends the configured
    greeting as a DM when welcome "DM Greeting" is enabled */
 registerDmMessages(client, ctx);
+
+/* auto-forward engine lives in commands.js — forwards configured video clips */
+registerAutoForward(client, ctx);
+
+/* join-to-create engine lives in commands.js — creates tracked temporary VCs */
+registerJoinToCreate(client, ctx);
 
 /* ═══════════════ LIVE MEMBER COUNT CHANNELS ═══════════════ */
 async function updateCounters() {

@@ -16,10 +16,10 @@
     "selfroles": [],
     "logsChannelId": "1535155796936097863",
     "counterIds": {
-      "total": "1548217704807403540",
-      "humans": "1548217705969221663",
-      "bots": "1548217706946363493",
-      "online": "1548217708049338430"
+      "total": "1548543898006323230",
+      "humans": "1548543901042868234",
+      "bots": "1548543902083063868",
+      "online": "1548543902896754739"
     },
     "honeypot": {
       "enabled": true,
@@ -35,7 +35,7 @@
       "reason": "Triggered honeypot protection",
       "dmEnabled": true,
       "dmMessage": "You triggered the honeypot in {server}.",
-      "logChannelId": "1535155796936097863",
+      "logChannelId": "1548518221752049794",
       "cooldown": 5000,
       "strikeWindow": 86400,
       "strikes": {
@@ -93,6 +93,58 @@
         "id": "1548494154001027133",
         "token": "fRey0ODnO29Zd5OOXOOdPq0MuOFMpyBe2Us59zBmjtHxDEYsjfVBBcD3LThSvSNREt9c"
       }
-    }
+    },
+    "autoforward": {
+      "enabled": true,
+      "routes": [
+        {
+          "id": "dn2ncc",
+          "name": "OGS ROUTE",
+          "categoryIds": [
+            "1535204191352393799"
+          ],
+          "channelIds": [
+            "1535204326916493352"
+          ],
+          "destinationChannelId": "1538710089425494017",
+          "deleteOriginal": true,
+          "confirmMessage": "🎬 {user} sent this clip",
+          "mode": "auto"
+        }
+      ],
+      "blacklist": [],
+      "forwardCount": 1
+    },
+    "jointocreate": {
+      "enabled": true,
+      "lobbyChannelId": "1548511718626304141",
+      "categoryId": "1535203879262879805",
+      "temp": {
+        "1548540056111816704": {
+          "ownerId": "1535922733643341854",
+          "locked": true
+        }
+      },
+      "ownerFeatures": {
+        "rename": true,
+        "limit": true,
+        "lock": true,
+        "mute": true,
+        "deafen": true,
+        "disconnect": true,
+        "whitelist": true,
+        "blacklist": true,
+        "remove": true,
+        "transfer": true,
+        "reset": true,
+        "delete": true
+      },
+      "protectedRoleIds": [],
+      "whitelistRoleIds": [],
+      "blacklistRoleIds": [],
+      "permanentRoleIds": [],
+      "protectedUserIds": []
+    },
+    "onlineChannelId": "1535155527997464576"
   }
 }

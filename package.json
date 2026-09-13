@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node BOT/main.js",
-    "check": "node --check BOT/main.js && node --check BOT/commands.js",
+    "check": "node --check BOT/main.js && node -e \"require('./BOT/commands')\"",
     "test": "npm run check"
   },
   "keywords": [],
