@@ -16,7 +16,6 @@ const lock = require('./lock');
 const unlock = require('./unlock');
 const user = require('./user');
 const serverinfo = require('./serverinfo');
-const userinfo = require('./userinfo');
 const roleinfo = require('./roleinfo');
 const channelinfo = require('./channelinfo');
 const avatar = require('./avatar');
@@ -58,7 +57,6 @@ const commands = [
   unlock,
   user,
   serverinfo,
-  userinfo,
   roleinfo,
   channelinfo,
   avatar,

@@ -19,6 +19,7 @@ module.exports = {
   },
   async run(i) {
     await i.guild.members.fetch().catch(() => {});
+    const canManage = i.member.permissions.has(PermissionFlagsBits.ManageGuild);
     const setupSel = new StringSelectMenuBuilder().setCustomId('mcount:setup').setPlaceholder('⚙️ Live counter setup…')
       .addOptions(
         { label: 'Create live counter channels', value: 'create', emoji: '🆕', description: 'Locked voice channels that auto-update' },
@@ -26,7 +27,11 @@ module.exports = {
       );
     return i.reply({
       embeds: [this.embed(i)],
-      components: [row(new ButtonBuilder().setCustomId('mcount:refresh').setLabel('🔄 Refresh').setStyle(ButtonStyle.Secondary)), row(setupSel)],
+      components: [
+        row(new ButtonBuilder().setCustomId('mcount:refresh').setLabel('🔄 Refresh').setStyle(ButtonStyle.Secondary)),
+        ...(canManage ? [row(setupSel)] : []),
+      ],
+      ephemeral: true,
     });
   },
   async onButton(i) {
@@ -34,6 +39,7 @@ module.exports = {
     return i.update({ embeds: [this.embed(i)] });
   },
   async onSelect(i, ctx) {
+    if (!i.member.permissions.has(PermissionFlagsBits.ManageGuild)) return err(i, 'You need **Manage Server** for setup.');
     const g = ctx.guild(i.guildId);
     if (i.values[0] === 'remove') {
       if (!g.counterIds) return i.update({ content: '⚠️ No live counters set up.', components: [i.message.components[0]] });
@@ -42,7 +48,6 @@ module.exports = {
       ctx.save();
       return i.update({ content: '🗑️ Live counters removed.', components: [i.message.components[0]] });
     }
-    if (!i.member.permissions.has(PermissionFlagsBits.ManageGuild)) return err(i, 'You need **Manage Server** for setup.');
     if (!i.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) return err(i, 'I need **Manage Channels**.');
     await i.deferUpdate();
     await i.guild.members.fetch().catch(() => {});

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const { colors, row } = require('./_shared');
 
 /* ═══════════════════════════ /commands pages ═══════════════════════════ */
@@ -27,7 +27,6 @@ const cmdPages = [
   ]},
   { name: 'Info', emoji: '📊', commands: [
     { n: 'serverinfo', d: 'Detailed server information card — refresh & full-size icon buttons.', u: '/serverinfo' },
-    { n: 'userinfo', d: 'Read-only member information card.', u: '/userinfo [user:@user]' },
     { n: 'roleinfo', d: 'Role details — members list & color preview included.', u: '/roleinfo role:@role' },
     { n: 'channelinfo', d: 'Channel details with quick-action buttons.', u: '/channelinfo [channel:#chan]' },
     { n: 'avatar', d: "Show a member's avatar in full size.", u: '/avatar [user:@user]' },
@@ -82,7 +81,8 @@ function pageRow(page) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('commands')
-    .setDescription('📋 Browse every command — descriptions, usage, categories & pages'),
+    .setDescription('📋 Browse every command — descriptions, usage, categories & pages (admin reference)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'hp',
   run: (i) => i.reply({ embeds: [pageEmbed(0)], components: pageRow(0), ephemeral: true }),
   async onButton(i) {

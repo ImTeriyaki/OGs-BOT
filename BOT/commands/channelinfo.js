@@ -1,9 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { colors, row, err } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('channelinfo').setDescription('📺 Channel information')
-    .addChannelOption(o => o.setName('channel').setDescription('Channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildVoice)),
+  data: new SlashCommandBuilder().setName('channelinfo').setDescription('📺 Channel information — includes lock/unlock/delete controls')
+    .addChannelOption(o => o.setName('channel').setDescription('Channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildVoice))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
   ns: 'ci',
   async run(i) {
     const channel = i.options.getChannel('channel') ?? i.channel;
@@ -26,6 +27,7 @@ module.exports = {
     return i.reply({ embeds: [embed], components: [actions] });
   },
   async onButton(i) {
+    if (!i.member.permissions.has(PermissionFlagsBits.ManageChannels)) return err(i, 'You need **Manage Channels** for that.');
     const [, action, id] = i.customId.split(':');
     const ch = await i.guild.channels.fetch(id).catch(() => null);
     if (!ch) return err(i, 'Channel not found.');

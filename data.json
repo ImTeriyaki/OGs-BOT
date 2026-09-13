@@ -16,10 +16,10 @@
     "selfroles": [],
     "logsChannelId": "1535155796936097863",
     "counterIds": {
-      "total": "1548543898006323230",
-      "humans": "1548543901042868234",
-      "bots": "1548543902083063868",
-      "online": "1548543902896754739"
+      "total": "1548546356896075816",
+      "humans": "1548546358212960266",
+      "bots": "1548546359391682571",
+      "online": "1548546369726189638"
     },
     "honeypot": {
       "enabled": true,
@@ -145,6 +145,6 @@
       "permanentRoleIds": [],
       "protectedUserIds": []
     },
-    "onlineChannelId": "1535155527997464576"
+    "onlineChannelId": null
   }
 }
