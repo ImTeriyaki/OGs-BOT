@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { colors, row, err } = require('./_shared');
 
+const BOOST_PERKS = ['💎 Better audio quality', '📄 More emoji slots', '🎨 Server banner & animated icon', '📎 Bigger upload limits'];
+
 module.exports = {
   data: new SlashCommandBuilder().setName('serverinfo').setDescription('📊 Server information'),
   ns: 'si',
@@ -27,6 +29,7 @@ module.exports = {
     return [row(
       new ButtonBuilder().setCustomId('si:refresh').setLabel('🔄 Refresh').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('si:icon').setLabel('🖼️ Icon').setStyle(ButtonStyle.Secondary).setDisabled(!i.guild.iconURL()),
+      new ButtonBuilder().setCustomId('si:boosts').setLabel('🚀 Boosts').setStyle(ButtonStyle.Secondary),
     )];
   },
   async run(i) {
@@ -37,6 +40,17 @@ module.exports = {
     if (action === 'icon') {
       if (!i.guild.iconURL()) return err(i, 'This server has no icon.');
       return i.reply({ embeds: [new EmbedBuilder().setTitle(`${i.guild.name}'s Icon`).setImage(i.guild.iconURL({ size: 1024 })).setColor(colors.main)], ephemeral: true });
+    }
+    if (action === 'boosts') {
+      const { guild } = i;
+      return i.reply({
+        embeds: [new EmbedBuilder()
+          .setTitle('🚀 Server Boosts')
+          .setDescription(`**${guild.premiumSubscriptionCount ?? 0}** boosts — **Level ${guild.premiumTier}**`)
+          .addFields({ name: 'Perks unlocked', value: BOOST_PERKS.slice(0, guild.premiumTier + 1).join('\n') || '*None yet — boost to unlock perks!*' })
+          .setColor(colors.main)],
+        ephemeral: true,
+      });
     }
     return i.update({ embeds: [this.embed(i)], components: this.buttons(i) });
   },

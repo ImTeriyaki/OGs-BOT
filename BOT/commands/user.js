@@ -52,6 +52,7 @@ function userRows(member) {
       new ButtonBuilder().setCustomId('usr:dm').setLabel('DM').setEmoji('📨').setStyle(ButtonStyle.Secondary),
     ),
     row(
+      new ButtonBuilder().setCustomId('usr:avatar').setLabel('Avatar').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:refresh').setLabel('Refresh').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:close').setLabel('Close').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
     ),
@@ -82,6 +83,21 @@ module.exports = {
 
     if (action === 'refresh') return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
     if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
+
+    if (action === 'avatar') {
+      const user = member.user;
+      return i.reply({
+        embeds: [new EmbedBuilder()
+          .setTitle(`${user.username}'s Avatar`)
+          .setImage(user.displayAvatarURL({ size: 1024 }))
+          .setColor(colors.main)
+          .addFields({
+            name: 'Links',
+            value: `[PNG](${user.displayAvatarURL({ extension: 'png', size: 1024 })}) • [JPG](${user.displayAvatarURL({ extension: 'jpg', size: 1024 })}) • [WEBP](${user.displayAvatarURL({ extension: 'webp', size: 1024 })})`,
+          })],
+        ephemeral: true,
+      });
+    }
 
     if (action === 'kick') {
       if (!i.member.permissions.has(PermissionFlagsBits.KickMembers)) return err(i, 'You need the **Kick Members** permission.');

@@ -62,6 +62,16 @@ const msgDefaults = (type) => ({
   showAvatar: true, showMemberCount: false, dmUser: false,
 });
 
+/* normalize + backfill g.welcome/g.goodbye in place — plain `g[type] ??= msgDefaults(type)`
+   is not enough because defaultGuild() pre-seeds these as `{}`, so the ??= never fires and
+   fields like title/message stay undefined forever (crashes EmbedBuilder.setTitle) */
+function msgState(g, type) {
+  const d = msgDefaults(type);
+  const s = g[type] ??= d;
+  for (const k of Object.keys(d)) s[k] ??= d[k];
+  return s;
+}
+
 function msgPreview(type, s, guild) {
   const filled = (s.message || '')
     .replaceAll('{user}', '@NewMember')
@@ -87,5 +97,5 @@ function msgChannelRow(ns, i, s) {
 
 module.exports = {
   colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration,
-  MSG_TEMPLATES, MSG_COLORS, msgDefaults, msgPreview, msgChannelRow,
+  MSG_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
 };

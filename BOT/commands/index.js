@@ -19,11 +19,9 @@ const user = require('./user');
 const serverinfo = require('./serverinfo');
 const roleinfo = require('./roleinfo');
 const channelinfo = require('./channelinfo');
-const avatar = require('./avatar');
 const membercount = require('./membercount');
 const botinfo = require('./botinfo');
 const stats = require('./stats');
-const boosts = require('./boosts');
 const snipe = require('./snipe');
 const editsnipe = require('./editsnipe');
 const say = require('./say');
@@ -61,11 +59,9 @@ const commands = [
   serverinfo,
   roleinfo,
   channelinfo,
-  avatar,
   membercount,
   botinfo,
   stats,
-  boosts,
   snipe,
   editsnipe,
   say,

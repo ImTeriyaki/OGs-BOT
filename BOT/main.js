@@ -8,6 +8,7 @@ const path = require('path');
 const {
   commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerAutoForward,
 } = require('./commands/index.js');
+const { msgDefaults } = require('./commands/_shared');
 
 
 /* ═══════════════ STORAGE ═══════════════ */
@@ -16,7 +17,7 @@ let db = fs.existsSync(DB_PATH) ? JSON.parse(fs.readFileSync(DB_PATH, 'utf8')) :
 
 function defaultGuild() {
   return {
-    welcome: {}, goodbye: {}, tickets: {}, jtc: null, jointocreate: null,
+    welcome: msgDefaults('welcome'), goodbye: msgDefaults('goodbye'), tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {}, autoroles: [], selfroles: [],
     logsChannelId: null, counterIds: null,
     ownerId: null, adminRoleId: null,

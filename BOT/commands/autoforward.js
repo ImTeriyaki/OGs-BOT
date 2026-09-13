@@ -545,4 +545,4 @@ function registerAutoForward(client, ctx) {
   });
 }
 
-module.exports = { command, registerAutoForward };
+module.exports = { command, registerAutoForward, afState, afNewRoute };
