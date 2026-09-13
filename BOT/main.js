@@ -3,10 +3,11 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
+const path = require('path');
 const { commands } = require('./commands.js');
 
 /* ═══════════════ STORAGE ═══════════════ */
-const DB_PATH = './data.json';
+const DB_PATH = path.join(__dirname, '..', 'data.json');
 let db = fs.existsSync(DB_PATH) ? JSON.parse(fs.readFileSync(DB_PATH, 'utf8')) : {};
 
 function defaultGuild() {
@@ -261,6 +262,85 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
+/* honeypot: anyone who types in a trap channel gets punished */
+client.on(Events.MessageCreate, async (message) => {
+  if (!message.guild || message.author.id === client.user.id) return;
+  const g = store.guild(message.guild.id);
+  const h = g.honeypot;
+  if (!h?.enabled || !h.channels?.includes(message.channel.id)) return;
+
+  const member = message.member;
+  if (!member) return;
+  if (message.author.bot && h.whitelistBots) return;
+  if (h.whitelistUsers?.includes(message.author.id)) return;
+  if (member.roles.cache.some((r) => h.whitelistRoles?.includes(r.id))) return;
+
+  const now = Date.now();
+  h.lastTrigger ??= {};
+  const onCooldown = h.cooldown && now - (h.lastTrigger[message.author.id] ?? 0) < h.cooldown;
+
+  if (h.deleteMessages) await message.delete().catch(() => {});
+  if (onCooldown) return;
+  h.lastTrigger[message.author.id] = now;
+
+  /* strikes reset once strikeWindow seconds pass without a new trigger */
+  h.strikes ??= {};
+  h.strikeTimestamps ??= {};
+  const lastStrike = h.strikeTimestamps[message.author.id] ?? 0;
+  h.strikes[message.author.id] = h.strikeWindow && now - lastStrike > h.strikeWindow * 1000
+    ? 1
+    : (h.strikes[message.author.id] ?? 0) + 1;
+  h.strikeTimestamps[message.author.id] = now;
+  const strikeCount = h.strikes[message.author.id];
+  const punishment = h.escalation?.[strikeCount] ?? h.punishment;
+
+  h.stats ??= { triggers: 0, users: {}, actions: {}, channels: {} };
+  h.stats.triggers++;
+  h.stats.users[message.author.id] = (h.stats.users[message.author.id] ?? 0) + 1;
+  h.stats.actions[punishment] = (h.stats.actions[punishment] ?? 0) + 1;
+  h.stats.channels[message.channel.id] = (h.stats.channels[message.channel.id] ?? 0) + 1;
+
+  if (!h.testMode) {
+    try {
+      if (punishment === 'kick' && member.kickable) await member.kick(h.reason);
+      else if (punishment === 'ban' && member.bannable) await message.guild.members.ban(message.author.id, { reason: h.reason });
+      else if (punishment === 'softban' && member.bannable) {
+        await message.guild.members.ban(message.author.id, { reason: h.reason, deleteMessageSeconds: 604800 });
+        await message.guild.members.unban(message.author.id).catch(() => {});
+      } else if (punishment === 'timeout' && member.moderatable) await member.timeout(h.duration * 1000, h.reason);
+    } catch { /* missing perms / member already gone — ignore */ }
+  }
+
+  if (h.dmEnabled) {
+    const dmText = (h.dmMessage ?? 'You triggered the honeypot in {server}.').replaceAll('{server}', message.guild.name);
+    await message.author.send(dmText).catch(() => {});
+  }
+
+  if (!h.silent) {
+    await message.channel.send(`🍯 ${member} triggered the honeypot — **${h.testMode ? 'test mode, no punishment' : punishment}**.`).catch(() => {});
+  }
+
+  store.save();
+
+  if (h.logChannelId) {
+    const logChannel = await client.channels.fetch(h.logChannelId).catch(() => null);
+    if (logChannel) {
+      const embed = new EmbedBuilder()
+        .setTitle(h.testMode ? '🍯 Honeypot Triggered (TEST MODE)' : '🍯 Honeypot Triggered')
+        .setColor(0xED4245)
+        .addFields(
+          { name: 'User', value: `${message.author} (\`${message.author.id}\`)`, inline: true },
+          { name: 'Channel', value: `${message.channel}`, inline: true },
+          { name: 'Punishment', value: h.testMode ? 'none (test mode)' : punishment, inline: true },
+          { name: 'Strike #', value: `${strikeCount}`, inline: true },
+          { name: 'Message', value: (message.content || '*no text*').slice(0, 1000) },
+        )
+        .setTimestamp();
+      await logChannel.send({ embeds: [embed] }).catch(() => {});
+    }
+  }
+});
+
 /* ═══════════════ LIVE MEMBER COUNT CHANNELS ═══════════════ */
 async function updateCounters() {
   for (const [guildId, data] of Object.entries(db)) {
@@ -319,4 +399,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 /* ═══════════════ LOGIN ═══════════════ */
-client.login(process.env.DISCORD_TOKEN);
+const token = process.env.DISCORD_TOKEN?.trim();
+if (!token) {
+  console.error('Missing DISCORD_TOKEN. Add it to a .env file in the project root.');
+  process.exitCode = 1;
+} else {
+  client.login(token).catch((error) => handleError(null, error, 'login'));
+}

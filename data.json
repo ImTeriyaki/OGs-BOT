@@ -6,7 +6,7 @@
     },
     "goodbye": {},
     "jtc": {
-      "lobbyId": "1548210625954455552",
+      "lobbyId": "1548458453104726168",
       "categoryId": "1535203879262879805"
     },
     "autoroles": [],
@@ -20,6 +20,67 @@
       "humans": "1548217705969221663",
       "bots": "1548217706946363493",
       "online": "1548217708049338430"
+    },
+    "honeypot": {
+      "enabled": true,
+      "testMode": false,
+      "silent": false,
+      "deleteMessages": false,
+      "channels": [
+        "1535199740151726172",
+        "1535179763906510859"
+      ],
+      "punishment": "softban",
+      "duration": 86400,
+      "reason": "Triggered honeypot protection",
+      "dmEnabled": true,
+      "dmMessage": "You triggered the honeypot in {server}.",
+      "logChannelId": "1535155796936097863",
+      "cooldown": 5000,
+      "strikeWindow": 86400,
+      "strikes": {
+        "644668219541422100": 3
+      },
+      "escalation": {
+        "2": "ban",
+        "3": "softban"
+      },
+      "whitelistRoles": [],
+      "whitelistUsers": [],
+      "whitelistBots": true,
+      "warnTitle": "🚫 STOP — DO NOT TYPE",
+      "warnDesc": "This channel is protected by the server honeypot.\n**Sending a message may result in automatic moderation action. You may be softbanned.**",
+      "warnButton": "⚠️ What happens?",
+      "warnMessageIds": {
+        "1535179763906510859": "1548482735587336243"
+      },
+      "stats": {
+        "triggers": 3,
+        "users": {
+          "644668219541422100": 3
+        },
+        "actions": {
+          "softban": 2,
+          "ban": 1
+        },
+        "channels": {
+          "1535179763906510859": 3
+        }
+      },
+      "lastTrigger": {
+        "644668219541422100": 1789257569657
+      },
+      "strikeTimestamps": {
+        "644668219541422100": 1789257569657
+      },
+      "channelIds": [
+        "1535179763906510859"
+      ],
+      "whitelist": [],
+      "message": {
+        "title": "🚫 STOP — DO NOT TYPE",
+        "description": "This channel is protected by the server honeypot.\n**Sending a message may result in automatic moderation action.**"
+      }
     }
   }
 }
