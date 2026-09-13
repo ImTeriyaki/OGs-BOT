@@ -11,10 +11,10 @@ const HP_DEFAULTS = () => ({
   punishment: 'softban',
   timeoutMinutes: 60,
   message: {
-    title: '⛔ No Chatting Here',
-    description: 'This channel is a **trap**. Do **not** type here.\nTyping will get you punished automatically.',
+    title: '🚫 STOP — DO NOT TYPE',
+    description: 'This channel is protected by the server honeypot.\nSending a message may result in automatic moderation action.',
   },
-  dmMessage: '🍯 You were punished (**{punishment}**) in **{server}** for typing in a protected channel.',
+  dmMessage: '🍯 You were punished (**{punishment}**) in **{server}** for typing in a protected channel.\nYou can rejoin here: {invite}',
   whitelist: [],
   logChannelId: null,
   strikes: {},
@@ -258,9 +258,14 @@ function registerHoneypot(client, ctx) {
       ctx.save();
 
       const p = hpPunishments[h.punishment] ?? hpPunishments.softban;
+      let invite = '';
+      try {
+        invite = (await msg.guild.invites.create(msg.channel, { maxAge: 86400, maxUses: 1, unique: true })).url;
+      } catch { /* missing CreateInstantInvite perms — send without a link */ }
       const dm = (h.dmMessage || HP_DEFAULTS().dmMessage)
         .replaceAll('{punishment}', p.label)
-        .replaceAll('{server}', msg.guild.name);
+        .replaceAll('{server}', msg.guild.name)
+        .replaceAll('{invite}', invite);
       await msg.author.send(dm).catch(() => {});
 
       if (h.punishment === 'softban') {
@@ -292,4 +297,4 @@ function registerHoneypot(client, ctx) {
   });
 }
 
-module.exports = { command, registerHoneypot };
+module.exports = { command, registerHoneypot, hpState, hpWarnPayload };

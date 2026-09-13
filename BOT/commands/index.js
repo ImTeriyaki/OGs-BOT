@@ -1,5 +1,6 @@
 const browser = require('./browser');
 const help = require('./help');
+const setup = require('./setup');
 const welcome = require('./welcome');
 const goodbye = require('./goodbye');
 const announce = require('./announce');
@@ -41,6 +42,7 @@ const { command: autoforwardCommand, registerAutoForward } = require('./autoforw
 const commands = [
   browser,
   help,
+  setup,
   welcome,
   goodbye,
   announce,

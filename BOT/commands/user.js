@@ -4,6 +4,16 @@ const {
 } = require('discord.js');
 const { colors, row, err, menu, rolesMenu } = require('./_shared');
 
+/* server owner and holders of the guild's admin role are off-limits to /user's
+   moderation actions — kick/ban/timeout already get this for free from Discord's
+   own hierarchy checks (kickable/bannable/moderatable), but warn/roleRemove/nickname
+   don't, so this covers everything consistently */
+function protectedTargetReason(g, member) {
+  if (g.ownerId && member.id === g.ownerId) return 'the server owner';
+  if (g.adminRoleId && member.roles.cache.has(g.adminRoleId)) return 'a member with the admin role';
+  return null;
+}
+
 /* /user panel — member info + every per-member moderation action in one place */
 function userEmbed(member, g) {
   const warns = g.warns?.[member.id] ?? [];
@@ -75,6 +85,8 @@ module.exports = {
 
     if (action === 'kick') {
       if (!i.member.permissions.has(PermissionFlagsBits.KickMembers)) return err(i, 'You need the **Kick Members** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't moderate ${protectedReason}.`);
       if (!member.kickable) return err(i, "I can't kick that member — they outrank me.");
       return i.reply({
         content: `👢 Kicking **${member.user.username}** — pick a reason:`,
@@ -93,6 +105,8 @@ module.exports = {
 
     if (action === 'ban') {
       if (!i.member.permissions.has(PermissionFlagsBits.BanMembers)) return err(i, 'You need the **Ban Members** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't moderate ${protectedReason}.`);
       if (!member.bannable) return err(i, "I can't ban that member — they outrank me.");
       i.client.userBan ??= new Map();
       i.client.userBan.set(i.user.id, { reason: 'No reason given', days: 0 });
@@ -133,6 +147,8 @@ module.exports = {
 
     if (action === 'timeout') {
       if (!i.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return err(i, 'You need the **Moderate Members** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't moderate ${protectedReason}.`);
       const timedOut = member.communicationDisabledUntilTimestamp && member.communicationDisabledUntilTimestamp > Date.now();
       if (timedOut) {
         await member.timeout(null);
@@ -154,6 +170,8 @@ module.exports = {
 
     if (action === 'warn') {
       if (!i.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return err(i, 'You need the **Moderate Members** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't moderate ${protectedReason}.`);
       return i.reply({
         content: `⚠️ Warning **${member.user.username}** — pick a reason:`,
         components: [row(menu('usr:warnReason', '⚠️ Pick a reason…', [
@@ -194,6 +212,8 @@ module.exports = {
     }
     if (action === 'roleRemove') {
       if (!i.member.permissions.has(PermissionFlagsBits.ManageRoles)) return err(i, 'You need the **Manage Roles** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't modify roles on ${protectedReason}.`);
       const options = member.roles.cache.filter(r => r.id !== i.guild.id).first(25).map(r => ({ label: r.name.slice(0, 100), value: r.id, emoji: '🏷️' }));
       if (!options.length) return err(i, `${member.user} has no removable roles.`);
       return i.reply({ content: `➖ Pick a role to remove from ${member.user}:`, components: [row(menu('usr:roleRemoveSel', '🏷️ Pick a role…', options))], ephemeral: true });
@@ -201,6 +221,8 @@ module.exports = {
 
     if (action === 'nickname') {
       if (!i.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return err(i, 'You need the **Manage Nicknames** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't rename ${protectedReason}.`);
       const modal = new ModalBuilder().setCustomId('usr:nickModal').setTitle('Change Nickname');
       modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('New nickname (blank = reset)').setStyle(TextInputStyle.Short).setMaxLength(32).setRequired(false)));
       return i.showModal(modal);

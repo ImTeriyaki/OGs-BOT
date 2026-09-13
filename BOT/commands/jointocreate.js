@@ -749,4 +749,4 @@ commands[commands.findIndex(c => c.ns === 'jtc')].run = async function (i, ctx) 
   });
 };
 
-module.exports = { commands, registerJoinToCreate };
+module.exports = { commands, registerJoinToCreate, jcState };

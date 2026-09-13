@@ -1,6 +1,6 @@
 
 const {
-  Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType,
+  Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType, PermissionFlagsBits,
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
@@ -19,6 +19,7 @@ function defaultGuild() {
     welcome: {}, goodbye: {}, tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {}, autoroles: [], selfroles: [],
     logsChannelId: null, counterIds: null,
+    ownerId: null, adminRoleId: null,
   };
 }
 
@@ -116,7 +117,23 @@ client.on('shardError', (error) => console.error('Shard error:', error));
    - guild scope is the ONLY scope commands are registered into (instant)
    - the global scope is only ever CLEARED (set([])), never filled        */
 
+/* capture the owner + the highest non-managed role with Administrator, so moderation
+   commands can protect them even in spots Discord's own role-hierarchy checks don't
+   cover (e.g. warning, removing a role, renaming) — runs on join and again on every
+   startup so it stays in sync as ownership/roles change */
+function captureGuildIdentity(guild) {
+  const g = store.guild(guild.id);
+  g.ownerId = guild.ownerId;
+  const adminRole = guild.roles.cache
+    .filter(r => r.id !== guild.id && !r.managed && r.permissions.has(PermissionFlagsBits.Administrator))
+    .sort((a, b) => b.position - a.position)
+    .first();
+  g.adminRoleId = adminRole?.id ?? null;
+  store.save();
+}
+
 const registerGuild = async (g) => {
+  captureGuildIdentity(g);
   try {
     await g.commands.set(commands.map(c => c.data.toJSON()));
     console.log(`✅ Registered ${commands.length} commands in ${g.name}`);
