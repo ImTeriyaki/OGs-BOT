@@ -1,9 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { colors } = require('./_shared');
 
 module.exports = {
   data: new SlashCommandBuilder().setName('inrole').setDescription('👥 List members with a role')
-    .addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true)),
+    .addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
   async run(i) {
     await i.deferReply({ ephemeral: true });
     const role = i.options.getRole('role');
