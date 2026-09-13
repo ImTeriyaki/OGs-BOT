@@ -1,13 +1,52 @@
 const {
   SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder,
-  PermissionFlagsBits, ChannelType,
+  PermissionFlagsBits, ChannelType, WebhookClient,
 } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 
 /* ═══════════════════════════ shared ═══════════════════════════ */
 const colors = { main: 0x5865F2, good: 0x57F287, bad: 0xED4245, warn: 0xFEE75C };
 
 const row = (...components) => new ActionRowBuilder().addComponents(...components);
+
+/* /embed's webhook avatar — drop an image at this path, see BOT/assets/README.md */
+const AVATAR_PATH = path.join(__dirname, 'assets', 'webhook-avatar.png');
+const webhookAvatar = () => (fs.existsSync(AVATAR_PATH) ? fs.readFileSync(AVATAR_PATH) : null);
+
+function formatDuration(milliseconds) {
+  let seconds = Math.floor(Math.max(0, milliseconds) / 1000);
+  const days = Math.floor(seconds / 86400);
+  seconds %= 86400;
+  const hours = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const minutes = Math.floor(seconds / 60);
+  seconds %= 60;
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function inviteLink(client) {
+  return client.generateInvite({
+    scopes: ['bot', 'applications.commands'],
+    permissions: [
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+      PermissionFlagsBits.ReadMessageHistory,
+      PermissionFlagsBits.AddReactions,
+      PermissionFlagsBits.ManageMessages,
+      PermissionFlagsBits.ManageChannels,
+      PermissionFlagsBits.ManageRoles,
+      PermissionFlagsBits.KickMembers,
+      PermissionFlagsBits.BanMembers,
+      PermissionFlagsBits.ModerateMembers,
+      PermissionFlagsBits.ManageGuild,
+      PermissionFlagsBits.Connect,
+      PermissionFlagsBits.MoveMembers,
+    ],
+  });
+}
 
 const err = (i, msg) => {
   const payload = { content: `⚠️ ${msg}`, ephemeral: true };
@@ -42,6 +81,7 @@ const cmdPages = [
     { n: 'ticket', d: 'Post a support ticket panel — pick channels from dropdowns.', u: '/ticket' },
     { n: 'logs', d: 'Set the error log channel from a dropdown.', u: '/logs' },
     { n: 'honeypot', d: 'Anti-raid trap channels — deploy, punishment, message, whitelist — all from one panel of buttons.', u: '/honeypot' },
+    { n: 'embed', d: 'Set up a webhook in this channel, then paste JSON from discohook.org to send a rich embed.', u: '/embed' },
     { n: 'refresh', d: 'Re-register slash commands instantly (admin only).', u: '/refresh' },
   ]},
   { name: 'Moderation', emoji: '🛡️', commands: [
@@ -320,7 +360,7 @@ const commands = [
       return [
         msgPreview('welcome', s, i.guild),
         new EmbedBuilder().setTitle('👋 Welcome Builder').setColor(s.enabled ? colors.good : colors.main)
-          .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}`),
+          .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}\n**DM Greeting:** ${s.dmUser ? '✅ On' : '❌ Off'}`),
       ];
     },
     async run(i, ctx) {
@@ -766,6 +806,115 @@ const commands = [
       g.logsChannelId = i.values[0] === 'off' ? null : i.values[0];
       ctx.save();
       return i.update({ content: g.logsChannelId ? `📜 Errors will be logged in <#${g.logsChannelId}>.` : '📜 Error logging disabled.', components: [] });
+    },
+  },
+
+  /* ─────────────── /embed — webhook + paste-JSON embed sender ─────────────── */
+  {
+    data: new SlashCommandBuilder()
+      .setName('embed')
+      .setDescription('📨 Set up a webhook here, then paste JSON from an embed builder to send it')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageWebhooks),
+    ns: 'emb',
+    async run(i, ctx) {
+      const g = ctx.guild(i.guildId);
+      const existing = g.embedWebhooks?.[i.channel.id];
+      const embed = new EmbedBuilder()
+        .setTitle('📨 Embed Sender — Setup')
+        .setColor(colors.main)
+        .setDescription([
+          existing
+            ? `A webhook already exists in ${i.channel} — you can go straight to sending an embed.`
+            : `This sets up a webhook in ${i.channel} so the bot can post rich embeds here.`,
+          '',
+          '**How it works:**',
+          '1️⃣ Click **Create Webhook** below (skip if one already exists).',
+          '2️⃣ Go to **https://discohook.org** and build your embed visually.',
+          '3️⃣ Use its **Share → Copy JSON** / `</>` button to copy the JSON.',
+          '4️⃣ Come back here, click **Paste Embed JSON**, and paste it in.',
+        ].join('\n'))
+        .setFooter({ text: existing ? 'Webhook ready in this channel' : 'No webhook here yet' });
+      return i.reply({
+        embeds: [embed],
+        components: [row(
+          new ButtonBuilder().setCustomId('emb:create').setLabel(existing ? 'Recreate Webhook' : 'Create Webhook').setEmoji('🪝').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('emb:paste').setLabel('Paste Embed JSON').setEmoji('📋').setStyle(ButtonStyle.Success).setDisabled(!existing),
+        )],
+        ephemeral: true,
+      });
+    },
+    async onButton(i, ctx) {
+      const g = ctx.guild(i.guildId);
+      const action = i.customId.split(':')[1];
+
+      if (action === 'create') {
+        if (!i.guild.members.me.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
+          return err(i, 'I need the **Manage Webhooks** permission.');
+        }
+        const avatar = webhookAvatar();
+        const webhook = await i.channel.createWebhook({
+          name: 'Embed Sender',
+          avatar: avatar ?? undefined,
+          reason: `Embed sender set up by ${i.user.tag}`,
+        }).catch(() => null);
+        if (!webhook) return err(i, "I couldn't create a webhook here — check my permissions.");
+
+        g.embedWebhooks ??= {};
+        g.embedWebhooks[i.channel.id] = { id: webhook.id, token: webhook.token };
+        ctx.save();
+
+        return i.update({
+          embeds: [new EmbedBuilder()
+            .setTitle('✅ Webhook Created')
+            .setColor(colors.good)
+            .setDescription([
+              `Webhook ready in ${i.channel}.`,
+              avatar ? '' : "\n*No avatar image found — drop one at `BOT/assets/webhook-avatar.png` and click **Recreate Webhook** to use it.*",
+              '',
+              'Now go to **https://discohook.org**, build your embed, copy its JSON, then click **Paste Embed JSON**.',
+            ].join('\n'))],
+          components: [row(
+            new ButtonBuilder().setCustomId('emb:create').setLabel('Recreate Webhook').setEmoji('🪝').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('emb:paste').setLabel('Paste Embed JSON').setEmoji('📋').setStyle(ButtonStyle.Success),
+          )],
+        });
+      }
+
+      if (action === 'paste') {
+        if (!g.embedWebhooks?.[i.channel.id]) return err(i, 'No webhook here yet — click **Create Webhook** first.');
+        const modal = new ModalBuilder().setCustomId('emb:jsonModal').setTitle('Paste Embed JSON');
+        modal.addComponents(row(
+          new TextInputBuilder().setCustomId('json').setLabel('JSON from discohook.org').setStyle(TextInputStyle.Paragraph).setRequired(true),
+        ));
+        return i.showModal(modal);
+      }
+    },
+    async onModal(i, ctx) {
+      const g = ctx.guild(i.guildId);
+      const hook = g.embedWebhooks?.[i.channel.id];
+      if (!hook) return err(i, 'No webhook here yet — run `/embed` again.');
+
+      let parsed;
+      try {
+        parsed = JSON.parse(i.fields.getTextInputValue('json'));
+      } catch {
+        return err(i, "That's not valid JSON — copy the export from discohook.org exactly and try again.");
+      }
+
+      const payload = Array.isArray(parsed)
+        ? { embeds: parsed }
+        : parsed.embeds
+          ? { content: parsed.content || undefined, embeds: parsed.embeds }
+          : { embeds: [parsed] };
+
+      if (!payload.embeds?.length && !payload.content) return err(i, 'That JSON has no `embeds` or `content` to send.');
+
+      try {
+        await new WebhookClient({ id: hook.id, token: hook.token }).send(payload);
+      } catch {
+        return err(i, "Couldn't send — the webhook may have been deleted. Run `/embed` and click **Create Webhook** again.");
+      }
+      return i.reply({ content: '✅ Sent!', ephemeral: true });
     },
   },
 
@@ -1625,10 +1774,11 @@ const commands = [
   {
     data: new SlashCommandBuilder().setName('invite').setDescription('🔗 Invite the bot'),
     async run(i) {
+      const invite = await inviteLink(i.client);
       return i.reply({
         embeds: [new EmbedBuilder()
           .setTitle('🔗 Invite OGs Bot')
-          .setDescription(`[Click here to invite me](${inviteLink(i.client)})`)
+          .setDescription(`[Click here to invite me](${invite})`)
           .setColor(colors.main)
           .setThumbnail(i.client.user.displayAvatarURL())],
       });
@@ -1640,31 +1790,31 @@ const commands = [
 const HP_DEFAULTS = () => ({
   enabled: false,
   channelIds: [],
-  punishment: 'softban',       // softban | ban | kick | timeout | none
+  punishment: 'softban',
   timeoutMinutes: 60,
   message: {
     title: '⛔ No Chatting Here',
     description: 'This channel is a **trap**. Do **not** type here.\nTyping will get you punished automatically.',
   },
-  whitelist: [],               // role IDs that are immune
+  dmMessage: '🍯 You were punished (**{punishment}**) in **{server}** for typing in a protected channel.',
+  whitelist: [],
   logChannelId: null,
-  strikes: {},                 // userId -> count
-  warnMessageIds: {},          // channelId -> live trap message id
+  strikes: {},
+  warnMessageIds: {},   // channelId -> live trap warning message id
 });
 
 function hpState(g) {
-  const defaults = HP_DEFAULTS();
-  const h = g.honeypot ??= defaults;
-  h.channelIds ??= h.channels ?? defaults.channelIds;
-  h.whitelist ??= h.whitelistRoles ?? defaults.whitelist;
-  h.strikes ??= h.stats?.users ?? defaults.strikes;
-  h.warnMessageIds ??= defaults.warnMessageIds;
-  h.message ??= {
-    title: h.warnTitle ?? defaults.message.title,
-    description: h.warnDesc ?? defaults.message.description,
-  };
-  h.message.title ??= defaults.message.title;
-  h.message.description ??= defaults.message.description;
+  const d = HP_DEFAULTS();
+  const h = g.honeypot ??= d;
+  h.channelIds ??= d.channelIds;
+  h.message ??= d.message;
+  h.message.title ??= d.message.title;
+  h.message.description ??= d.message.description;
+  h.dmMessage ??= d.dmMessage;
+  h.whitelist ??= d.whitelist;
+  h.strikes ??= d.strikes;
+  h.warnMessageIds ??= d.warnMessageIds;
+  h.timeoutMinutes ??= d.timeoutMinutes;
   return h;
 }
 
@@ -1702,11 +1852,10 @@ commands.push({
     const p = hpPunishments[h.punishment] ?? hpPunishments.softban;
     return new EmbedBuilder()
       .setTitle('🍯 Honeypot Control Panel')
-      .setDescription(`**Status:** ${h.enabled ? '🟢 Deployed' : '🔴 Disabled'}\n**Traps:** ${h.channelIds.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*none*'}\n**Punishment:** ${p.emoji} ${p.label}\n**Whitelist roles:** ${h.whitelist.length ? h.whitelist.map(r => `<@&${r}>`).join(', ') : '*none*'}`)
+      .setDescription(`**Status:** ${h.enabled ? '🟢 Deployed' : '🔴 Disabled'}\n**Traps:** ${h.channelIds.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*none*'}\n**Punishment:** ${p.emoji} ${p.label}\n**Whitelist roles:** ${h.whitelist.length ? h.whitelist.map(r => `<@&${r}>`).join(', ') : '*none*'}\n**Log channel:** ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}`)
       .setColor(h.enabled ? colors.good : colors.main);
   },
-  panel() {
-    const h = this._h;
+  panel(h) {
     return [
       row(
         new ButtonBuilder().setCustomId('hpot:toggle').setLabel(h.enabled ? '⬇️ Undeploy' : '🚀 Deploy').setStyle(h.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
@@ -1715,9 +1864,9 @@ commands.push({
         new ButtonBuilder().setCustomId('hpot:message').setLabel('✉️ Message').setStyle(ButtonStyle.Secondary),
       ),
       row(
+        new ButtonBuilder().setCustomId('hpot:dm').setLabel('📩 DM Message').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('hpot:whitelist').setLabel('🛡️ Whitelist').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('hpot:logs').setLabel('📜 Log Channel').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('hpot:test').setLabel('🧪 Test').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('hpot:stats').setLabel('📊 Stats').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('hpot:close').setLabel('✖️').setStyle(ButtonStyle.Secondary),
       ),
@@ -1725,19 +1874,17 @@ commands.push({
   },
   async run(i, ctx) {
     const g = ctx.guild(i.guildId);
-    this._h = hpState(g);
+    const h = hpState(g);
     ctx.save();
-    return i.reply({ embeds: [this.embed(g)], components: this.panel(), ephemeral: true });
+    return i.reply({ embeds: [this.embed(g)], components: this.panel(h), ephemeral: true });
   },
   async onButton(i, ctx) {
     const g = ctx.guild(i.guildId);
     const h = hpState(g);
-    this._h = h;
     const action = i.customId.split(':')[1];
 
     if (action === 'close') { await i.message.delete().catch(() => {}); return i.reply({ content: '✖️ Closed.', ephemeral: true }).catch(() => {}); }
-
-    if (action === 'info') return; /* disabled button on live trap messages */
+    if (action === 'info') return; /* disabled button on live trap warnings */
 
     if (action === 'toggle') {
       h.enabled = !h.enabled;
@@ -1754,7 +1901,7 @@ commands.push({
         }
       }
       ctx.save();
-      return i.update({ embeds: [this.embed(g)], components: this.panel() });
+      return i.update({ embeds: [this.embed(g)], components: this.panel(h) });
     }
 
     if (action === 'channels') {
@@ -1781,8 +1928,17 @@ commands.push({
       const modal = new ModalBuilder().setCustomId('hpot:msgModal').setTitle('Trap Message');
       modal.addComponents(
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('t').setLabel('Title').setStyle(TextInputStyle.Short).setMaxLength(100).setValue(h.message.title).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('d').setLabel('Description (warns people not to type)').setStyle(TextInputStyle.Paragraph).setMaxLength(1000).setValue(h.message.description).setRequired(true)),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('d').setLabel('Description').setStyle(TextInputStyle.Paragraph).setMaxLength(1000).setValue(h.message.description).setRequired(true)),
       );
+      return i.showModal(modal);
+    }
+
+    if (action === 'dm') {
+      const modal = new ModalBuilder().setCustomId('hpot:dmModal').setTitle('Punishment DM');
+      modal.addComponents(new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('v').setLabel('DM text ({punishment}, {server})')
+          .setStyle(TextInputStyle.Paragraph).setMaxLength(1000)
+          .setValue(h.dmMessage).setRequired(true)));
       return i.showModal(modal);
     }
 
@@ -1802,11 +1958,6 @@ commands.push({
       return i.reply({ components: [row(sel)], ephemeral: true });
     }
 
-    if (action === 'test') {
-      if (!h.channelIds.length) return err(i, 'Pick trap channels first.');
-      return i.reply({ ...hpWarnPayload(h), content: '🧪 **Test preview** — nobody is actually punished by this:', ephemeral: true });
-    }
-
     if (action === 'stats') {
       const total = Object.values(h.strikes ?? {}).reduce((a, b) => a + b, 0);
       return i.reply({
@@ -1823,19 +1974,10 @@ commands.push({
     const action = i.customId.split(':')[1];
 
     if (action === 'channelsSel') {
-      const removed = h.channelIds.filter(id => !i.values.includes(id));
       h.channelIds = i.values;
       h.warnMessageIds ??= {};
       await i.deferUpdate();
-      for (const chId of removed) {
-        const oldId = h.warnMessageIds[chId];
-        if (oldId) {
-          const ch = await i.guild.channels.fetch(chId).catch(() => null);
-          if (ch) await ch.messages.delete(oldId).catch(() => {});
-          delete h.warnMessageIds[chId];
-        }
-      }
-      for (const chId of i.values) {
+      for (const chId of h.channelIds) {
         if (!h.enabled || h.warnMessageIds[chId]) continue;
         const ch = await i.guild.channels.fetch(chId).catch(() => null);
         if (!ch) continue;
@@ -1849,7 +1991,11 @@ commands.push({
     if (action === 'punishSel') {
       h.punishment = i.values[0];
       ctx.save();
-      return i.update({ content: `⚖️ Punishment: **${hpPunishments[h.punishment].label}** — press 🚀 Deploy again to refresh live trap messages.`, components: [] });
+      /* refresh live trap warnings so the footer shows the new punishment */
+      for (const [chId, msgId] of Object.entries(h.warnMessageIds ?? {})) {
+        await i.guild.channels.fetch(chId).then(ch => ch?.messages.edit(msgId, hpWarnPayload(h))).catch(() => {});
+      }
+      return i.update({ content: `⚖️ Punishment: **${hpPunishments[h.punishment].label}**.`, components: [] });
     }
 
     if (action === 'wlSel') { h.whitelist = i.values; ctx.save(); return i.update({ content: `🛡️ Whitelist: ${h.whitelist.length ? h.whitelist.map(r => `<@&${r}>`).join(', ') : '*empty*'}`, components: [] }); }
@@ -1858,19 +2004,23 @@ commands.push({
   async onModal(i, ctx) {
     const g = ctx.guild(i.guildId);
     const h = hpState(g);
-    h.message.title = i.fields.getTextInputValue('t');
-    h.message.description = i.fields.getTextInputValue('d');
-    ctx.save();
-    await i.deferReply({ ephemeral: true });
-    h.warnMessageIds ??= {};
-    for (const chId of h.channelIds) {
-      const msgId = h.warnMessageIds[chId];
-      if (!msgId) continue;
-      const ch = await i.guild.channels.fetch(chId).catch(() => null);
-      if (!ch) continue;
-      await ch.messages.edit(msgId, hpWarnPayload(h)).catch(() => {});
+
+    if (i.customId === 'hpot:msgModal') {
+      h.message.title = i.fields.getTextInputValue('t');
+      h.message.description = i.fields.getTextInputValue('d');
+      ctx.save();
+      await i.deferReply({ ephemeral: true });
+      for (const [chId, msgId] of Object.entries(h.warnMessageIds ?? {})) {
+        await i.guild.channels.fetch(chId).then(ch => ch?.messages.edit(msgId, hpWarnPayload(h))).catch(() => {});
+      }
+      return i.editReply({ content: '✅ Trap message updated everywhere. Preview:', ...hpWarnPayload(h) });
     }
-    return i.editReply({ content: '✅ Trap message updated everywhere. Preview:', ...hpWarnPayload(h) });
+
+    if (i.customId === 'hpot:dmModal') {
+      h.dmMessage = i.fields.getTextInputValue('v');
+      ctx.save();
+      return i.reply({ content: `✅ Punishment DM updated:\n> ${h.dmMessage}`, ephemeral: true });
+    }
   },
 });
 
@@ -1890,6 +2040,11 @@ function registerHoneypot(client, ctx) {
       ctx.save();
 
       const p = hpPunishments[h.punishment] ?? hpPunishments.softban;
+      const dm = (h.dmMessage || HP_DEFAULTS().dmMessage)
+        .replaceAll('{punishment}', p.label)
+        .replaceAll('{server}', msg.guild.name);
+      await msg.author.send(dm).catch(() => {});
+
       if (h.punishment === 'softban') {
         await msg.member.ban({ deleteMessageSeconds: 86400, reason: '🍯 Honeypot' })
           .then(() => msg.guild.members.unban(msg.author.id).catch(() => {}))
@@ -1914,22 +2069,40 @@ function registerHoneypot(client, ctx) {
           }).catch(() => {});
         }
       }
-      msg.author.send(`🍯 You were punished (**${p.label}**) in **${msg.guild.name}** for typing in a protected channel.`).catch(() => {});
+
     } catch { /* never crash the bot over honeypot */ }
   });
 }
 
-/* ═══════════════════════════ helpers used above ═══════════════════════════ */
-function formatDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return `${d ? `${d}d ` : ''}${h ? `${h}h ` : ''}${m}m`;
+/* ═══════════════════ welcome DM engine (guildMemberAdd listener) ═══════════════════ */
+/* Sends the configured welcome message as a DM when the "DM Greeting"
+   toggle is enabled in /welcome. DM only — never posts anywhere else. */
+function registerDmMessages(client, ctx) {
+  client.on('guildMemberAdd', async (member) => {
+    try {
+      if (member.user.bot) return;
+      const g = ctx.guild(member.guild.id);
+      const w = g?.welcome;
+      if (!w?.enabled || !w.dmUser) return;
+
+      const text = (w.message ?? 'Welcome to {server}!')
+        .replaceAll('{user}', `<@${member.id}>`)
+        .replaceAll('{username}', member.user.username)
+        .replaceAll('{server}', member.guild.name)
+        .replaceAll('{membercount}', String(member.guild.memberCount));
+
+      const embed = new EmbedBuilder()
+        .setTitle(w.title ?? '👋 Welcome!')
+        .setDescription(text)
+        .setColor(w.color ? parseInt(w.color.replace('#', ''), 16) : 0x5865F2)
+        .setThumbnail(w.pfp ?? member.user.displayAvatarURL())
+        .setFooter({ text: `Member #${member.guild.memberCount}` })
+        .setTimestamp();
+      if (w.banner) embed.setImage(w.banner);
+
+      await member.send({ embeds: [embed] }).catch(() => {});
+    } catch { /* never crash over a DM */ }
+  });
 }
 
-function inviteLink(client) {
-  return `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`;
-}
-
-module.exports = { commands, registerHoneypot };
+module.exports = { commands, registerHoneypot, registerDmMessages };

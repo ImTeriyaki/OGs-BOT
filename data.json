@@ -39,7 +39,8 @@
       "cooldown": 5000,
       "strikeWindow": 86400,
       "strikes": {
-        "644668219541422100": 3
+        "644668219541422100": 6,
+        "1535922733643341854": 3
       },
       "escalation": {
         "2": "ban",
@@ -55,23 +56,23 @@
         "1535179763906510859": "1548482735587336243"
       },
       "stats": {
-        "triggers": 3,
+        "triggers": 6,
         "users": {
-          "644668219541422100": 3
+          "644668219541422100": 6
         },
         "actions": {
-          "softban": 2,
+          "softban": 5,
           "ban": 1
         },
         "channels": {
-          "1535179763906510859": 3
+          "1535179763906510859": 6
         }
       },
       "lastTrigger": {
-        "644668219541422100": 1789257569657
+        "644668219541422100": 1789258618805
       },
       "strikeTimestamps": {
-        "644668219541422100": 1789257569657
+        "644668219541422100": 1789258618805
       },
       "channelIds": [
         "1535179763906510859"
@@ -80,6 +81,17 @@
       "message": {
         "title": "🚫 STOP — DO NOT TYPE",
         "description": "This channel is protected by the server honeypot.\n**Sending a message may result in automatic moderation action.**"
+      },
+      "timeoutMinutes": 60
+    },
+    "embedWebhooks": {
+      "1535166246528622613": {
+        "id": "1548493512402542633",
+        "token": "qGKRuBaEjVBjZTJmaOFyJ9O1yORHj90X6oauJsFC1DBlx_Q1ZWvMZtIfQ9k8SPDcM_HJ"
+      },
+      "1535199740151726172": {
+        "id": "1548494154001027133",
+        "token": "fRey0ODnO29Zd5OOXOOdPq0MuOFMpyBe2Us59zBmjtHxDEYsjfVBBcD3LThSvSNREt9c"
       }
     }
   }
