@@ -25,7 +25,7 @@ const afNewRoute = () => ({
   channelIds: [],
   destinationChannelId: null,
   deleteOriginal: false,
-  mode: 'auto',                       // 'auto' | 'ask'
+  mode: 'ask',                        // 'auto' | 'ask' — ask-first by default; admins can flip to auto per route
   confirmMessage: AFWD_MSG_DEFAULT,
 });
 
@@ -224,12 +224,17 @@ const command = {
   },
 
   async onButton(i, ctx) {
+    /* askYes/askNo are handled entirely by registerAutoForward's own interactionCreate
+       listener below — bail here so this generic dashboard handler doesn't also try
+       to acknowledge the same interaction (was racing it and causing Unknown interaction) */
+    if (i.customId.startsWith('afwd:ask')) return;
+
     const g = ctx.guild(i.guildId);
     const a = afState(g);
     const [, action, routeId] = i.customId.split(':');
 
     /* ── dashboard-level buttons ── */
-    if (action === 'close') { await i.message.delete().catch(() => {}); return i.reply({ content: '✖️ Closed.', ephemeral: true }).catch(() => {}); }
+    if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
     if (action === 'back') return i.update({ embeds: [afDashboardEmbed(i, g)], components: afDashboardPanel(a) });
 
     if (action === 'toggle') {
@@ -418,55 +423,35 @@ const command = {
 
 /* ═══════════════════ auto-forward engine (messageCreate + ask-confirm buttons) ═══════════════════ */
 
-/* shared: actually forward a message's videos to a route's destination.
-   returns the count forwarded, or -1 when nothing could be sent. */
+/* shared: natively forward a message (via Discord's own Forward feature — no downloading
+   or re-uploading the file) to a route's destination.
+   returns 1 when forwarded, or -1 when nothing could be sent. */
 async function afwdDoForward(msg, route, ctx) {
   const dest = await msg.guild.channels.fetch(route.destinationChannelId).catch(() => null);
   if (!dest?.isTextBased()) return -1;
   if (msg.channelId === dest.id) return -1;
 
   const mePerms = msg.guild.members.me?.permissionsIn(dest);
-  if (!mePerms?.has(PermissionFlagsBits.SendMessages) || !mePerms?.has(PermissionFlagsBits.AttachFiles)) return -1;
+  if (!mePerms?.has(PermissionFlagsBits.SendMessages)) return -1;
 
   const videos = await afwdVideosIn(msg);
   const links = afwdVideoLinksIn(msg);
   if (!videos.length && !links.length) return -1;
 
   const base = (route.confirmMessage ?? AFWD_MSG_DEFAULT).replaceAll('{user}', `<@${msg.author.id}>`);
-  let sentCount = 0;
-  const failed = [];
 
-  /* pasted links — one message per link so each gets its own Discord embed/unfurl */
-  for (const url of links) {
-    try {
-      await dest.send({ content: `${base}\n${url}` });
-      sentCount++;
-    } catch { /* rate-limited etc. — link stays in the original message */ }
+  try {
+    await dest.send({ content: base, forward: { message: msg.id, channel: msg.channelId, guild: msg.guildId } });
+  } catch {
+    return -1; /* permissions, message gone, etc. — original stays intact */
   }
 
-  /* uploaded files — re-upload, one message per file */
-  for (const att of videos) {
-    try {
-      await dest.send({ content: base, files: [{ attachment: att.url, name: att.name }] });
-      sentCount++;
-    } catch {
-      failed.push(att); /* oversize, rate-limited, expired URL — original stays intact */
-    }
-  }
-
-  if (sentCount) {
-    const g = ctx.guild(msg.guildId);
-    const a = afState(g);
-    a.forwardCount = (a.forwardCount ?? 0) + sentCount;
-    ctx.save();
-    if (route.deleteOriginal) await msg.delete().catch(() => {});
-  }
-  if (failed.length) {
-    await msg.channel.send({
-      content: `⚠️ <@${msg.author.id}> — ${failed.length} clip(s) couldn't be forwarded (too large or upload failed). Your original message is untouched.`,
-    }).catch(() => {});
-  }
-  return sentCount;
+  const g = ctx.guild(msg.guildId);
+  const a = afState(g);
+  a.forwardCount = (a.forwardCount ?? 0) + 1;
+  ctx.save();
+  if (route.deleteOriginal) await msg.delete().catch(() => {});
+  return 1;
 }
 
 function registerAutoForward(client, ctx) {
@@ -554,7 +539,7 @@ function registerAutoForward(client, ctx) {
       const count = await afwdDoForward(srcMsg, route, ctx);
       pendingAsks.delete(msgId);
       if (count > 0) {
-        await btn.channel.send(`✅ ${btn.user} forwarded **${count}** clip(s) to <#${route.destinationChannelId}>.`).catch(() => {});
+        await btn.channel.send(`✅ ${btn.user} forwarded the clip to <#${route.destinationChannelId}>.`).catch(() => {});
       }
     } catch { /* never crash */ }
   });
