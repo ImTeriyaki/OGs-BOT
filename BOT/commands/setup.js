@@ -92,6 +92,15 @@ function jtcLobbyStepView() {
   };
 }
 
+/* step 2 of goodbye: the category (or 'none') is already resolved and embedded in the customId */
+function gbyeChannelStepView(catId) {
+  return {
+    content: '🚪 **Step 2/2** — pick an existing channel for goodbye messages, or have the bot create one:',
+    embeds: [],
+    components: [pickOrCreatePanel(`setup:gbyeChPick:${catId}`, `setup:gbyeChCreate:${catId}`, '✨ Create #goodbye'), navRow()],
+  };
+}
+
 /* step 2 of honeypot: the trap channel is already resolved by this point */
 function hpotLogStepView() {
   return {
@@ -132,7 +141,8 @@ module.exports = {
 
   async onButton(i, ctx) {
     const g = ctx.guild(i.guildId);
-    const action = i.customId.split(':')[1];
+    const parts = i.customId.split(':');
+    const action = parts[1];
 
     if (action === 'close') return i.update({ content: '✖️ Setup closed.', embeds: [], components: [] });
     if (action === 'back') return i.update({ ...dashboardView(i, g), content: '' });
@@ -171,9 +181,13 @@ module.exports = {
     }
     if (action === 'gbye') {
       return i.update({
-        content: '🚪 **Goodbye** — where should goodbye messages post?',
+        content: '🚪 **Goodbye** — **Step 1/2** — pick an existing category for the goodbye channel, or have the bot create one (or skip):',
         embeds: [],
-        components: [pickOrCreatePanel('setup:gbyePick', 'setup:gbyeCreate', '✨ Create #goodbye'), navRow()],
+        components: [
+          pickOrCreatePanel('setup:gbyeCatPick', 'setup:gbyeCatCreate', '✨ Create Category'),
+          row(new ButtonBuilder().setCustomId('setup:gbyeCatSkip').setLabel('⏭️ Skip — no category').setStyle(ButtonStyle.Secondary)),
+          navRow(),
+        ],
       });
     }
 
@@ -232,10 +246,24 @@ module.exports = {
       const sel = menu('setup:wlcmSel', '👋 Pick the welcome channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '👋' })));
       return i.update({ content: '👋 Pick the welcome channel:', components: [row(sel), navRow()] });
     }
-    if (action === 'gbyePick') {
+    if (action === 'gbyeCatPick') {
+      const cats = categories(i, 25);
+      if (!cats.length) return err(i, 'No categories found.');
+      const sel = menu('setup:gbyeCatSel', '📁 Pick the category…', cats.map(c => ({ label: c.name.slice(0, 100), value: c.id, emoji: '📁' })));
+      return i.update({ content: '📁 **Step 1/2** — pick the category the goodbye channel lives in:', embeds: [], components: [row(sel), navRow()] });
+    }
+    if (action === 'gbyeCatSkip') return i.update(gbyeChannelStepView('none'));
+    if (action === 'gbyeCatCreate') {
+      const modal = new ModalBuilder().setCustomId('setup:gbyeCatModal').setTitle('Name the Category');
+      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Category name')
+        .setStyle(TextInputStyle.Short).setMaxLength(100).setValue('Server Notifications').setRequired(true)));
+      return i.showModal(modal);
+    }
+    if (action === 'gbyeChPick') {
+      const catId = parts[2];
       const chans = textChannels(i, 25);
       if (!chans.length) return err(i, 'No text channels found.');
-      const sel = menu('setup:gbyeSel', '🚪 Pick the goodbye channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🚪' })));
+      const sel = menu(`setup:gbyeChSel:${catId}`, '🚪 Pick the goodbye channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🚪' })));
       return i.update({ content: '🚪 Pick the goodbye channel:', components: [row(sel), navRow()] });
     }
 
@@ -291,8 +319,11 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} and enabled welcome messages there.` });
     }
-    if (action === 'gbyeCreate') {
-      const ch = await i.guild.channels.create({ name: 'goodbye', type: ChannelType.GuildText }).catch(() => null);
+    if (action === 'gbyeChCreate') {
+      const catId = parts[2];
+      const ch = await i.guild.channels.create({
+        name: 'goodbye', type: ChannelType.GuildText, parent: catId !== 'none' ? catId : null,
+      }).catch(() => null);
       if (!ch) return err(i, "Couldn't create the channel — check my permissions.");
       g.goodbye ??= msgDefaults('goodbye');
       g.goodbye.channelId = ch.id;
@@ -347,7 +378,13 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Welcome messages will post in <#${g.welcome.channelId}>.` });
     }
-    if (i.customId === 'setup:gbyeSel') {
+    if (i.customId === 'setup:gbyeCatSel') {
+      const catId = i.values[0];
+      const cat = i.guild.channels.cache.get(catId);
+      const next = gbyeChannelStepView(catId);
+      return i.update({ ...next, content: `✅ Goodbye channel will be created in \`${cat?.name ?? 'that category'}\` if you create one.\n\n${next.content}` });
+    }
+    if (i.customId.startsWith('setup:gbyeChSel:')) {
       g.goodbye ??= msgDefaults('goodbye');
       g.goodbye.channelId = i.values[0];
       g.goodbye.enabled = true;
@@ -357,15 +394,23 @@ module.exports = {
   },
 
   async onModal(i, ctx) {
-    if (i.customId !== 'setup:jtcCatModal') return;
     const g = ctx.guild(i.guildId);
-    const jc = jcState(g);
-    const name = i.fields.getTextInputValue('v').trim().slice(0, 100) || 'Temporary Voices';
-    const cat = await i.guild.channels.create({ name, type: ChannelType.GuildCategory }).catch(() => null);
-    if (!cat) return err(i, "Couldn't create the category — check my permissions.");
-    jc.categoryId = cat.id;
-    ctx.save();
-    const next = jtcLobbyStepView();
-    return i.update({ ...next, content: `✅ Created category \`${cat.name}\`.\n\n${next.content}` });
+    if (i.customId === 'setup:jtcCatModal') {
+      const jc = jcState(g);
+      const name = i.fields.getTextInputValue('v').trim().slice(0, 100) || 'Temporary Voices';
+      const cat = await i.guild.channels.create({ name, type: ChannelType.GuildCategory }).catch(() => null);
+      if (!cat) return err(i, "Couldn't create the category — check my permissions.");
+      jc.categoryId = cat.id;
+      ctx.save();
+      const next = jtcLobbyStepView();
+      return i.update({ ...next, content: `✅ Created category \`${cat.name}\`.\n\n${next.content}` });
+    }
+    if (i.customId === 'setup:gbyeCatModal') {
+      const name = i.fields.getTextInputValue('v').trim().slice(0, 100) || 'Server Notifications';
+      const cat = await i.guild.channels.create({ name, type: ChannelType.GuildCategory }).catch(() => null);
+      if (!cat) return err(i, "Couldn't create the category — check my permissions.");
+      const next = gbyeChannelStepView(cat.id);
+      return i.update({ ...next, content: `✅ Created category \`${cat.name}\`.\n\n${next.content}` });
+    }
   },
 };
