@@ -1,5 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
-const { colors, row, menu, GOODBYE_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
+const {
+  SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
+  ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits,
+} = require('discord.js');
+const { colors, row, err, menu, GOODBYE_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,6 +16,7 @@ module.exports = {
         new ButtonBuilder().setCustomId('gbye:toggle').setLabel(s.enabled ? 'Disable' : 'Enable').setEmoji(s.enabled ? '🔴' : '🟢').setStyle(s.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
         new ButtonBuilder().setCustomId('gbye:avatar').setLabel(`Avatar: ${s.showAvatar ? 'On' : 'Off'}`).setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('gbye:count').setLabel(`Show #: ${s.showMemberCount ? 'On' : 'Off'}`).setEmoji('👥').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('gbye:banner').setLabel(s.banner ? '🖼️ Change Banner' : '🖼️ Set Banner').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('gbye:close').setLabel('Close').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
       ),
       row(menu('gbye:template', '📝 Pick a goodbye template…',
@@ -26,7 +30,7 @@ module.exports = {
     return [
       msgPreview('goodbye', s, i.guild),
       new EmbedBuilder().setTitle('🚪 Goodbye Builder').setColor(s.enabled ? colors.good : colors.main)
-        .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}`),
+        .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}\n**Banner:** ${s.banner ? '✅ Set' : '*not set*'}`),
     ];
   },
   async run(i, ctx) {
@@ -43,6 +47,12 @@ module.exports = {
     if (action === 'avatar') g.goodbye.showAvatar = !g.goodbye.showAvatar;
     if (action === 'count') g.goodbye.showMemberCount = !g.goodbye.showMemberCount;
     if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
+    if (action === 'banner') {
+      const modal = new ModalBuilder().setCustomId('gbye:bannerModal').setTitle('Set Goodbye Banner');
+      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Image URL (blank to clear)')
+        .setStyle(TextInputStyle.Short).setMaxLength(300).setValue(g.goodbye.banner ?? '').setRequired(false)));
+      return i.showModal(modal);
+    }
     ctx.save();
     return i.update({ embeds: this.embed(i, g.goodbye), components: this.panel(i, g.goodbye) });
   },
@@ -58,6 +68,16 @@ module.exports = {
     }
     if (i.customId === 'gbye:color') g.goodbye.color = i.values[0];
     if (i.customId === 'gbye:channel') g.goodbye.channelId = i.values[0];
+    ctx.save();
+    return i.update({ embeds: this.embed(i, g.goodbye), components: this.panel(i, g.goodbye) });
+  },
+  async onModal(i, ctx) {
+    if (i.customId !== 'gbye:bannerModal') return;
+    const g = ctx.guild(i.guildId);
+    msgState(g, 'goodbye');
+    const url = i.fields.getTextInputValue('v').trim();
+    if (url && !/^https?:\/\/\S+$/i.test(url)) return err(i, 'That doesn\'t look like a valid link — it must start with `http://` or `https://`.');
+    g.goodbye.banner = url || null;
     ctx.save();
     return i.update({ embeds: this.embed(i, g.goodbye), components: this.panel(i, g.goodbye) });
   },

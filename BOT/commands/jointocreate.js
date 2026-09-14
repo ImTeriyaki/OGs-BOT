@@ -679,7 +679,7 @@ function registerJoinToCreate(client, ctx) {
 
   /* ── restart reconcile: re-adopt surviving temp VCs, delete empty orphans ── */
   client.on('guildCreate', (g) => reconcile(g, ctx));
-  client.once('ready', async () => {
+  client.once('clientReady', async () => {
     try {
       for (const g of client.guilds.cache.values()) await reconcile(g, ctx);
     } catch { /* never crash */ }

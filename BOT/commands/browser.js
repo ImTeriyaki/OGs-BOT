@@ -26,26 +26,22 @@ const cmdPages = [
     { n: 'user', d: 'One panel for a member — info plus kick, ban, timeout, warn, roles, nickname, avatar & DM buttons.', u: '/user member:@user' },
   ]},
   { name: 'Info', emoji: '📊', commands: [
-    { n: 'serverinfo', d: 'Detailed server information card — refresh, full-size icon & boost-perks buttons.', u: '/serverinfo' },
-    { n: 'roleinfo', d: 'Role details — members list & color preview included.', u: '/roleinfo role:@role' },
+    { n: 'serverinfo', d: 'Detailed server information card — owner, members, online, created date, channels, roles, boosts. Refresh & invite-link buttons.', u: '/serverinfo' },
     { n: 'channelinfo', d: 'Channel details with quick-action buttons.', u: '/channelinfo [channel:#chan]' },
     { n: 'membercount', d: 'Live humans/bots/online breakdown with bar chart & setup.', u: '/membercount' },
     { n: 'botinfo', d: 'Statistics about this bot.', u: '/botinfo' },
-    { n: 'stats', d: 'Live server activity stats — members, channels, roles, boosts.', u: '/stats' },
     { n: 'snipe', d: 'Show the last deleted message in this channel.', u: '/snipe' },
     { n: 'editsnipe', d: 'Show the last edited message in this channel.', u: '/editsnipe' },
   ]},
   { name: 'Utility', emoji: '🔧', commands: [
     { n: 'say', d: 'Make the bot say something — pick the channel from a dropdown.', u: '/say message:<text>' },
     { n: 'remind', d: 'Set a reminder — duration from a dropdown, the bot DMs you.', u: '/remind' },
-    { n: 'poll', d: 'Create a reaction poll with up to 10 options.', u: '/poll question:<text> [options...]' },
     { n: 'inrole', d: 'List every member that has a role.', u: '/inrole role:@role' },
     { n: 'channelcreate', d: 'Create a channel — type from buttons, name in one field.', u: '/channelcreate' },
     { n: 'rolecreate', d: 'Create a role — name & color, color from a dropdown.', u: '/rolecreate' },
     { n: 'ping', d: 'Bot latency and API latency — button to announce here when the bot comes online.', u: '/ping' },
     { n: 'uptime', d: 'How long the bot has been running.', u: '/uptime' },
     { n: 'invite', d: 'Get the bot invite link.', u: '/invite' },
-    { n: 'serverinvite', d: 'Get this server\'s invite link — admins can set it.', u: '/serverinvite' },
     { n: 'commands', d: 'This command browser.', u: '/commands' },
   ]},
 ];
@@ -77,22 +73,46 @@ function pageRow(page) {
   return [row(jump), row(...buttons)];
 }
 
+/* quick-launch: a "▶ Run" button per command that takes zero options — those are safe to
+   run directly off a button (no typed input to collect). Commands with required/optional
+   arguments (e.g. /user, /purge, /say) are skipped since a button click has no options to
+   read. Admin-only because /commands itself is admin-gated — this never appears in /help. */
+function quickLaunchRows(page, commands) {
+  const runnable = cmdPages[page].commands.filter(c => {
+    const cmd = commands.find(x => x.data.name === c.n);
+    return cmd && cmd.data.toJSON().options?.length === 0;
+  });
+  const rows = [];
+  for (let x = 0; x < runnable.length; x += 5) {
+    rows.push(row(...runnable.slice(x, x + 5).map(c =>
+      new ButtonBuilder().setCustomId(`hp:run:${c.n}`).setLabel(`▶ /${c.n}`).setStyle(ButtonStyle.Primary))));
+  }
+  return rows.slice(0, 3); /* jump + nav already use 2 of Discord's 5-row cap */
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('commands')
     .setDescription('📋 Browse every command — descriptions, usage, categories & pages (admin reference)')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'hp',
-  run: (i) => i.reply({ embeds: [pageEmbed(0)], components: pageRow(0), ephemeral: true }),
-  async onButton(i) {
+  run: (i, ctx) => i.reply({ embeds: [pageEmbed(0)], components: [...pageRow(0), ...quickLaunchRows(0, ctx.commands)], ephemeral: true }),
+  async onButton(i, ctx) {
     const action = i.customId.split(':')[1];
     if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
+    if (action === 'run') {
+      const name = i.customId.split(':')[2];
+      const cmd = ctx.commands.find(c => c.data.name === name);
+      if (!cmd) return i.reply({ content: '⚠️ That command is no longer available.', ephemeral: true });
+      return cmd.run(i, ctx);
+    }
     const current = parseInt((i.message.embeds[0]?.footer?.text ?? '').match(/^Page (\d+)/)?.[1] ?? 1, 10) - 1;
     const page = Math.max(0, Math.min(cmdPages.length - 1, action === 'prev' ? current - 1 : current + 1));
-    return i.update({ embeds: [pageEmbed(page)], components: pageRow(page) });
+    return i.update({ embeds: [pageEmbed(page)], components: [...pageRow(page), ...quickLaunchRows(page, ctx.commands)] });
   },
-  async onSelect(i) {
+  async onSelect(i, ctx) {
     if (i.customId !== 'hp:jump') return;
-    return i.update({ embeds: [pageEmbed(parseInt(i.values[0], 10))], components: pageRow(parseInt(i.values[0], 10)) });
+    const page = parseInt(i.values[0], 10);
+    return i.update({ embeds: [pageEmbed(page)], components: [...pageRow(page), ...quickLaunchRows(page, ctx.commands)] });
   },
 };

@@ -1,6 +1,7 @@
 
 const {
   Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType, PermissionFlagsBits,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
@@ -67,6 +68,20 @@ const ctx = {
 const byNs = new Map(commands.filter(c => c.ns).map(c => [c.ns, c]));
 
 /* ═══════════════ ERROR HANDLER ═══════════════ */
+/* plain-language one-liner for common Discord API error codes, so the user-facing
+   message says something more useful than "something went wrong" */
+const FRIENDLY_ERRORS = {
+  50001: "I don't have access to that channel or resource.",
+  50013: "I don't have the right permissions to do that here.",
+  50035: 'Something I tried to send was invalid — too long, badly formatted, or a duplicate component.',
+  10003: "That channel doesn't exist anymore.",
+  10007: "That member isn't in this server anymore.",
+  10008: 'That message no longer exists — it may have been deleted.',
+  10062: 'That action expired before I could respond — please try again.',
+  30001: 'A Discord limit was hit (too many roles, channels, or similar) — try removing something first.',
+};
+const friendlyError = (error) => FRIENDLY_ERRORS[error?.code] ?? 'An unexpected error occurred while running that.';
+
 /* generates a short error code, replies privately, never crashes,
    and logs to the guild's configured logs channel */
 async function handleError(interaction, error, source = 'command') {
@@ -75,7 +90,10 @@ async function handleError(interaction, error, source = 'command') {
 
   if (interaction) {
     const payload = {
-      content: `⚠️ Something went wrong.\n**Error code:** \`${code}\`\n*The error has been logged.*`,
+      content: `⚠️ ${friendlyError(error)}\n\n**Error code:**\n\`${code}\`\n*This has been logged.*`,
+      components: [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`errcopy:${code}`).setLabel('📋 Copy Error Code').setStyle(ButtonStyle.Secondary),
+      )],
       ephemeral: true,
     };
     try {
@@ -91,14 +109,16 @@ async function handleError(interaction, error, source = 'command') {
       const channel = await client.channels.fetch(guildData.logsChannelId).catch(() => null);
       if (channel) {
         const logEmbed = new EmbedBuilder()
-          .setTitle(`🚨 ${code}`)
+          .setTitle('🚨 Error Logged')
           .setDescription([
+            `**» Error Code** \`${code}\``,
+            `**» Likely Cause** ${friendlyError(error)}`,
             `**» Source** \`${source}\``,
             interaction.commandName ? `**» Command** \`/${interaction.commandName}\`` : null,
             interaction.user ? `**» User** <@${interaction.user.id}>` : null,
             `**» Channel** <#${interaction.channelId}>`,
           ].filter(Boolean).join('\n'))
-          .addFields({ name: 'Error', value: `\`\`\`\n${String(error?.stack ?? error).slice(0, 1000)}\n\`\`\`` })
+          .addFields({ name: 'Raw Error', value: `\`\`\`\n${String(error?.stack ?? error).slice(0, 1000)}\n\`\`\`` })
           .setColor(0xED4245)
           .setTimestamp();
         await channel.send({ embeds: [logEmbed] }).catch(() => {});
@@ -163,10 +183,12 @@ client.once(Events.ClientReady, async (readyClient) => {
     if (!data.onlineChannelId) continue;
     const channel = await readyClient.channels.fetch(data.onlineChannelId).catch(() => null);
     if (!channel) continue;
+    const ping = readyClient.ws.ping;
     await channel.send({
       embeds: [new EmbedBuilder()
         .setTitle('✅ Bot Online')
         .setDescription(`${readyClient.user} just came online.`)
+        .addFields({ name: '💓 API Latency', value: ping >= 0 ? `${ping}ms` : 'calculating…', inline: true })
         .setColor(0x57F287)
         .setTimestamp()],
     }).catch(() => {});
@@ -325,6 +347,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const cmd = commands.find(c => c.data.name === interaction.commandName);
       if (!cmd) return;
       return await cmd.run(interaction, ctx);
+    }
+
+    /* standalone "copy error code" button on error replies — not owned by any command */
+    if (interaction.isButton() && interaction.customId.startsWith('errcopy:')) {
+      return await interaction.reply({ content: `\`${interaction.customId.split(':')[1]}\``, ephemeral: true }).catch(() => {});
     }
 
     /* route buttons / modals / selects by namespace prefix */

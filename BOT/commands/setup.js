@@ -234,7 +234,7 @@ module.exports = {
     }
     if (action === 'invite') {
       const modal = new ModalBuilder().setCustomId('setup:inviteModal').setTitle('Set Invite Link');
-      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Discord invite link')
+      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Invite link (any URL)')
         .setStyle(TextInputStyle.Short).setMaxLength(200).setValue(g.inviteLink ?? '')
         .setPlaceholder('https://discord.gg/yourcode').setRequired(true)));
       return i.showModal(modal);
@@ -527,8 +527,8 @@ module.exports = {
     }
     if (i.customId === 'setup:inviteModal') {
       const link = i.fields.getTextInputValue('v').trim();
-      if (!/^https?:\/\/(www\.)?(discord\.gg|discord(app)?\.com\/invite)\/\S+$/i.test(link)) {
-        return err(i, "That doesn't look like a valid Discord invite link — expected something like `https://discord.gg/yourcode`.");
+      if (!/^https?:\/\/\S+$/i.test(link)) {
+        return err(i, 'That doesn\'t look like a valid link — it must start with `http://` or `https://`.');
       }
       g.inviteLink = link;
       ctx.save();

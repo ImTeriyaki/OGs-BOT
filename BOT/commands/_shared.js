@@ -66,7 +66,7 @@ const msgDefaults = (type) => ({
   message: type === 'welcome' ? 'Welcome to {server}, {user}!' : '{username} left {server}.',
   dmMessage: type === 'welcome' ? 'Welcome to {server}, {user}!' : '{username} left {server}.',
   color: type === 'welcome' ? '#5865F2' : '#ED4245',
-  showAvatar: true, showMemberCount: false, dmUser: false,
+  showAvatar: true, showMemberCount: false, dmUser: false, banner: null,
 });
 
 /* normalize + backfill g.welcome/g.goodbye in place — plain `g[type] ??= msgDefaults(type)`
@@ -92,6 +92,7 @@ function msgPreview(type, s, guild) {
     .setFooter({ text: `${type === 'welcome' ? '👋 Welcome preview' : '🚪 Goodbye preview'} • ${guild.name}` })
     .setTimestamp();
   if (s.showAvatar) e.setThumbnail(guild.iconURL({ size: 128 }) ?? 'https://cdn.discordapp.com/embed/avatars/0.png');
+  if (s.banner) e.setImage(s.banner);
   return e;
 }
 

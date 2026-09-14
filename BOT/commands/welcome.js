@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits,
 } = require('discord.js');
-const { colors, row, menu, WELCOME_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
+const { colors, row, err, menu, WELCOME_TEMPLATES, MSG_COLORS, msgState, msgPreview, msgChannelRow } = require('./_shared');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -25,7 +25,10 @@ module.exports = {
       row(menu('wlcm:color', '🎨 Pick an embed color…',
         MSG_COLORS.map(c => ({ label: c.label, value: c.hex, emoji: '🎨', default: c.hex === s.color })))),
       msgChannelRow('wlcm', i, s),
-      row(new ButtonBuilder().setCustomId('wlcm:dmedit').setLabel('✏️ Edit DM Message').setStyle(ButtonStyle.Secondary)),
+      row(
+        new ButtonBuilder().setCustomId('wlcm:dmedit').setLabel('✏️ Edit DM Message').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('wlcm:banner').setLabel(s.banner ? '🖼️ Change Banner' : '🖼️ Set Banner').setStyle(ButtonStyle.Secondary),
+      ),
     ];
   },
   embed(i, g) {
@@ -33,7 +36,7 @@ module.exports = {
     return [
       msgPreview('welcome', s, i.guild),
       new EmbedBuilder().setTitle('👋 Welcome Builder').setColor(s.enabled ? colors.good : colors.main)
-        .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}\n**DM Greeting:** ${s.dmUser ? '✅ On' : '❌ Off'}\n**DM Message:** ${s.dmMessage.slice(0, 200)}`),
+        .setDescription(`**Status:** ${s.enabled ? '✅ Enabled' : '❌ Disabled'}${s.channelId ? `\n**Channel:** <#${s.channelId}>` : '\n**Channel:** *pick one below*'}\n**DM Greeting:** ${s.dmUser ? '✅ On' : '❌ Off'}\n**DM Message:** ${s.dmMessage.slice(0, 200)}\n**Banner:** ${s.banner ? '✅ Set' : '*not set*'}`),
     ];
   },
   async run(i, ctx) {
@@ -57,6 +60,12 @@ module.exports = {
         .setStyle(TextInputStyle.Paragraph).setMaxLength(1000).setValue(g.welcome.dmMessage).setRequired(true)));
       return i.showModal(modal);
     }
+    if (action === 'banner') {
+      const modal = new ModalBuilder().setCustomId('wlcm:bannerModal').setTitle('Set Welcome Banner');
+      modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Image URL (blank to clear)')
+        .setStyle(TextInputStyle.Short).setMaxLength(300).setValue(g.welcome.banner ?? '').setRequired(false)));
+      return i.showModal(modal);
+    }
     ctx.save();
     return i.update({ embeds: this.embed(i, g), components: this.panel(i, g) });
   },
@@ -77,10 +86,17 @@ module.exports = {
     return i.update({ embeds: this.embed(i, g), components: this.panel(i, g) });
   },
   async onModal(i, ctx) {
-    if (i.customId !== 'wlcm:dmMsgModal') return;
     const g = ctx.guild(i.guildId);
     msgState(g, 'welcome');
-    g.welcome.dmMessage = i.fields.getTextInputValue('v').trim();
+    if (i.customId === 'wlcm:dmMsgModal') {
+      g.welcome.dmMessage = i.fields.getTextInputValue('v').trim();
+    } else if (i.customId === 'wlcm:bannerModal') {
+      const url = i.fields.getTextInputValue('v').trim();
+      if (url && !/^https?:\/\/\S+$/i.test(url)) return err(i, 'That doesn\'t look like a valid link — it must start with `http://` or `https://`.');
+      g.welcome.banner = url || null;
+    } else {
+      return;
+    }
     ctx.save();
     return i.update({ embeds: this.embed(i, g), components: this.panel(i, g) });
   },

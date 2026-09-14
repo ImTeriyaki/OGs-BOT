@@ -20,7 +20,7 @@ module.exports = {
         ),
         row(menu('cc:cat', '📁 Category (optional)…',
           [{ label: 'No category', value: 'none', emoji: '🚫' },
-           ...categories(i).map(c => ({ label: c.name.slice(0, 100), value: c.id, emoji: '📁' }))])),
+           ...categories(i, 24).map(c => ({ label: c.name.slice(0, 100), value: c.id, emoji: '📁' }))])),
       ],
       ephemeral: true,
     });

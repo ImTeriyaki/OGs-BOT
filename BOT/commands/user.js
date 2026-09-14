@@ -19,40 +19,46 @@ function userEmbed(member, g) {
   const warns = g.warns?.[member.id] ?? [];
   const timedOut = member.communicationDisabledUntilTimestamp && member.communicationDisabledUntilTimestamp > Date.now();
   return new EmbedBuilder()
-    .setTitle(`👤 ${member.user.username}`)
+    .setTitle(`👤 ${member.user.tag}`)
     .setThumbnail(member.user.displayAvatarURL({ size: 512 }))
     .setColor(member.displayColor || colors.main)
     .addFields(
       { name: '🆔 ID', value: member.id, inline: true },
-      { name: '🤖 Bot', value: member.user.bot ? 'Yes' : 'No', inline: true },
-      { name: '📅 Account created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-      { name: '📥 Joined server', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true },
+      { name: '📅 Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>`, inline: true },
+      { name: '📥 Joined Server', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:F>`, inline: true },
       { name: '⚠️ Warnings', value: `${warns.length}`, inline: true },
-      { name: '🔇 Timed out', value: timedOut ? `until <t:${Math.floor(member.communicationDisabledUntilTimestamp / 1000)}:R>` : 'No', inline: true },
+      { name: '🔇 Timed Out', value: timedOut ? `until <t:${Math.floor(member.communicationDisabledUntilTimestamp / 1000)}:F> (<t:${Math.floor(member.communicationDisabledUntilTimestamp / 1000)}:R>)` : 'No', inline: true },
+      { name: '🤖 Bot', value: member.user.bot ? 'Yes' : 'No', inline: true },
       { name: '🎭 Roles', value: member.roles.cache.filter(r => r.id !== member.guild.id).map(r => `<@&${r.id}>`).join(' ').slice(0, 1024) || '*none*' },
     )
     .setFooter({ text: 'Moderation panel — use the buttons below' });
 }
 
+/* color-coded by intent: red = punishment (ban/kick/warn), blurple→green = a
+   temporary restriction toggle (timeout/mute), green = a positive/cleanup action,
+   grey = neutral utility — kept to Discord's 4 button styles, grouped by severity */
 function userRows(member) {
   const timedOut = member.communicationDisabledUntilTimestamp && member.communicationDisabledUntilTimestamp > Date.now();
+  const muted = member.voice?.serverMute;
   return [
     row(
-      new ButtonBuilder().setCustomId('usr:kick').setLabel('Kick').setEmoji('👢').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId('usr:ban').setLabel('Ban').setEmoji('🔨').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('usr:kick').setLabel('Kick').setEmoji('👢').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('usr:warn').setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId('usr:timeout').setLabel(timedOut ? 'Remove Timeout' : 'Timeout').setEmoji(timedOut ? '🔊' : '🔇').setStyle(timedOut ? ButtonStyle.Success : ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('usr:warn').setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('usr:warnings').setLabel('Warnings').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('usr:mute').setLabel(muted ? 'Unmute' : 'Mute').setEmoji(muted ? '🎤' : '🎙️').setStyle(muted ? ButtonStyle.Success : ButtonStyle.Primary),
     ),
     row(
-      new ButtonBuilder().setCustomId('usr:clearwarnings').setLabel('Clear Warnings').setEmoji('🧽').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('usr:warnings').setLabel('Warnings').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('usr:clearwarnings').setLabel('Clear Warnings').setEmoji('🧽').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('usr:roleAdd').setLabel('Add Role').setEmoji('➕').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:roleRemove').setLabel('Remove Role').setEmoji('➖').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('usr:nickname').setLabel('Nickname').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:dm').setLabel('DM').setEmoji('📨').setStyle(ButtonStyle.Secondary),
     ),
     row(
+      new ButtonBuilder().setCustomId('usr:nickname').setLabel('Nickname').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:avatar').setLabel('Avatar').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('usr:copyid').setLabel('Copy ID').setEmoji('🆔').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:refresh').setLabel('Refresh').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:close').setLabel('Close').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
     ),
@@ -97,6 +103,10 @@ module.exports = {
           })],
         ephemeral: true,
       });
+    }
+
+    if (action === 'copyid') {
+      return i.reply({ content: `\`${member.id}\``, ephemeral: true });
     }
 
     if (action === 'kick') {
@@ -182,6 +192,15 @@ module.exports = {
         ]))],
         ephemeral: true,
       });
+    }
+
+    if (action === 'mute') {
+      if (!i.member.permissions.has(PermissionFlagsBits.MuteMembers)) return err(i, 'You need the **Mute Members** permission.');
+      const protectedReason = protectedTargetReason(g, member);
+      if (protectedReason) return err(i, `🛡️ You can't moderate ${protectedReason}.`);
+      if (!member.voice.channelId) return err(i, 'That member is not in a voice channel.');
+      await member.voice.setMute(!member.voice.serverMute, `[by ${i.user.tag}]`).catch(() => {});
+      return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
     }
 
     if (action === 'warn') {

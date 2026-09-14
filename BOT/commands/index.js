@@ -17,23 +17,19 @@ const lock = require('./lock');
 const unlock = require('./unlock');
 const user = require('./user');
 const serverinfo = require('./serverinfo');
-const roleinfo = require('./roleinfo');
 const channelinfo = require('./channelinfo');
 const membercount = require('./membercount');
 const botinfo = require('./botinfo');
-const stats = require('./stats');
 const snipe = require('./snipe');
 const editsnipe = require('./editsnipe');
 const say = require('./say');
 const remind = require('./remind');
-const poll = require('./poll');
 const inrole = require('./inrole');
 const channelcreate = require('./channelcreate');
 const rolecreate = require('./rolecreate');
 const ping = require('./ping');
 const uptime = require('./uptime');
 const invite = require('./invite');
-const serverinvite = require('./serverinvite');
 const { command: honeypotCommand, registerHoneypot } = require('./honeypot');
 const { registerDmMessages } = require('./dm-messages');
 const { command: autoforwardCommand, registerAutoForward } = require('./autoforward');
@@ -58,23 +54,19 @@ const commands = [
   unlock,
   user,
   serverinfo,
-  roleinfo,
   channelinfo,
   membercount,
   botinfo,
-  stats,
   snipe,
   editsnipe,
   say,
   remind,
-  poll,
   inrole,
   channelcreate,
   rolecreate,
   ping,
   uptime,
   invite,
-  serverinvite,
   honeypotCommand,
   autoforwardCommand,
 ];
