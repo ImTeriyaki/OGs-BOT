@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 const { colors, err } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('editsnipe').setDescription('✏️ Last edited message in this channel')
+  data: new SlashCommandBuilder().setName('editsnipe').setDescription('Last edited message in this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   async run(i, ctx) {
     const s = ctx.editSnipes.get(i.channel.id);

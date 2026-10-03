@@ -4,7 +4,7 @@ const { colors, row, textChannels } = require('./_shared');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('logs')
-    .setDescription('📜 Set the error log channel — dropdown picker')
+    .setDescription('Set the error log channel — dropdown picker')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'logs',
   async run(i, ctx) {

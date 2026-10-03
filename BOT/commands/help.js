@@ -5,7 +5,7 @@ const { colors } = require('./_shared');
    behind ManageGuild/ManageMessages/Administrator/etc. is admin/mod-only and stays hidden
    here automatically, so this never needs manual upkeep as commands are added or changed. */
 module.exports = {
-  data: new SlashCommandBuilder().setName('help').setDescription('📖 Show the commands available to you'),
+  data: new SlashCommandBuilder().setName('help').setDescription('Show the commands available to you'),
   ns: 'help',
   async run(i, ctx) {
     const lines = ctx.commands

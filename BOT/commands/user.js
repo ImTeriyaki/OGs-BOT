@@ -1,6 +1,6 @@
 const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
-  ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits,
+  ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, PermissionFlagsBits,
 } = require('discord.js');
 const { colors, row, err, menu, rolesMenu } = require('./_shared');
 
@@ -21,7 +21,7 @@ function userEmbed(member, g) {
   return new EmbedBuilder()
     .setTitle(`👤 ${member.user.tag}`)
     .setThumbnail(member.user.displayAvatarURL({ size: 512 }))
-    .setColor(member.displayColor || colors.main)
+    .setColor(0xED4245)
     .addFields(
       { name: '🆔 ID', value: member.id, inline: true },
       { name: '📅 Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>`, inline: true },
@@ -34,9 +34,7 @@ function userEmbed(member, g) {
     .setFooter({ text: 'Moderation panel — use the buttons below' });
 }
 
-/* color-coded by intent: red = punishment (ban/kick/warn), blurple→green = a
-   temporary restriction toggle (timeout/mute), green = a positive/cleanup action,
-   grey = neutral utility — kept to Discord's 4 button styles, grouped by severity */
+/* Buttons follow the /commands palette: moderation red, info blue, utility green, neutral gray. */
 function userRows(member) {
   const timedOut = member.communicationDisabledUntilTimestamp && member.communicationDisabledUntilTimestamp > Date.now();
   const muted = member.voice?.serverMute;
@@ -45,20 +43,26 @@ function userRows(member) {
       new ButtonBuilder().setCustomId('usr:ban').setLabel('Ban').setEmoji('🔨').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId('usr:kick').setLabel('Kick').setEmoji('👢').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId('usr:warn').setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('usr:timeout').setLabel(timedOut ? 'Remove Timeout' : 'Timeout').setEmoji(timedOut ? '🔊' : '🔇').setStyle(timedOut ? ButtonStyle.Success : ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('usr:mute').setLabel(muted ? 'Unmute' : 'Mute').setEmoji(muted ? '🎤' : '🎙️').setStyle(muted ? ButtonStyle.Success : ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('usr:purge').setLabel('Purge').setEmoji('🧹').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('usr:clearwarnings').setLabel('Clear Warnings').setEmoji('🧽').setStyle(ButtonStyle.Danger),
     ),
     row(
-      new ButtonBuilder().setCustomId('usr:warnings').setLabel('Warnings').setEmoji('📋').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('usr:clearwarnings').setLabel('Clear Warnings').setEmoji('🧽').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('usr:roleAdd').setLabel('Add Role').setEmoji('➕').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('usr:roleRemove').setLabel('Remove Role').setEmoji('➖').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('usr:timeout').setLabel(timedOut ? 'Remove Timeout' : 'Timeout').setEmoji(timedOut ? '🔊' : '🔇').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('usr:mute').setLabel(muted ? 'Unmute' : 'Mute').setEmoji(muted ? '🎤' : '🎙️').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('usr:warnings').setLabel('Warnings').setEmoji('📋').setStyle(ButtonStyle.Primary),
+    ),
+    row(
+      new ButtonBuilder().setCustomId('usr:roleAdd').setLabel('Add Role').setEmoji('➕').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('usr:roleRemove').setLabel('Remove Role').setEmoji('➖').setStyle(ButtonStyle.Danger),
+    ),
+    row(
       new ButtonBuilder().setCustomId('usr:dm').setLabel('DM').setEmoji('📨').setStyle(ButtonStyle.Secondary),
-    ),
-    row(
       new ButtonBuilder().setCustomId('usr:nickname').setLabel('Nickname').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:avatar').setLabel('Avatar').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:copyid').setLabel('Copy ID').setEmoji('🆔').setStyle(ButtonStyle.Secondary),
+    ),
+    row(
+      new ButtonBuilder().setCustomId('usr:history').setLabel('Deleted Messages').setEmoji('🕘').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('usr:refresh').setLabel('Refresh').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('usr:close').setLabel('Close').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
     ),
@@ -68,7 +72,7 @@ function userRows(member) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('user')
-    .setDescription('👤 View a member and moderate them from one panel')
+    .setDescription('View a member and moderate them from one panel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .addUserOption(o => o.setName('member').setDescription('Member to inspect').setRequired(true)),
   ns: 'usr',
@@ -86,6 +90,38 @@ module.exports = {
     if (!member) return err(i, 'Session expired — run `/user` again.');
     const g = ctx.guild(i.guildId);
     const action = i.customId.split(':')[1];
+
+    if (action === 'purge') {
+      if (!i.member.permissions.has(PermissionFlagsBits.ManageMessages)) return err(i, 'You need the **Manage Messages** permission.');
+      const select = new StringSelectMenuBuilder().setCustomId('usr:purgeAmount').setPlaceholder('How many recent messages to delete?')
+        .addOptions([5, 10, 25, 50, 100].map(amount => ({ label: `Delete ${amount} messages`, value: String(amount) })));
+      i.client.purgeUsers ??= new Map();
+      i.client.purgeUsers.set(i.user.id, member.id);
+      return i.reply({ content: `Choose how many recent messages to delete from **${member.user.username}**:`, components: [row(select)], ephemeral: true });
+    }
+
+    if (action === 'history') {
+      const events = ctx.messageHistory?.get(i.channelId) ?? [];
+      const deleted = events.filter(event => event.type === 'deleted');
+      const pageSize = 3;
+      const pageCount = Math.max(1, Math.ceil(deleted.length / pageSize));
+      const parts = i.customId.split(':');
+      const requestedPage = Number(parts[2] ?? 0);
+      const page = Math.max(0, Math.min(Number.isInteger(requestedPage) ? requestedPage : 0, pageCount - 1));
+      const entries = deleted.slice(page * pageSize, (page + 1) * pageSize).map((event, index) =>
+        `**${page * pageSize + index + 1}. ${event.author}** · <t:${Math.floor(event.at / 1000)}:R>\n${(event.content || '*no text*').slice(0, 220)}${event.image ? `\n[Attachment](${event.image})` : ''}`);
+      const historyEmbed = new EmbedBuilder()
+        .setTitle(`Deleted Messages · #${i.channel?.name ?? i.channelId}`)
+        .setColor(0xED4245)
+        .setDescription(entries.join('\n\n') || '*No deleted messages recorded.*')
+        .setFooter({ text: `${deleted.length} deleted messages in the latest 50 channel history events · Page ${page + 1}/${pageCount}` });
+      const controls = row(
+        new ButtonBuilder().setCustomId(`usr:history:${page - 1}`).setLabel('Previous').setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId(`usr:history:${page + 1}`).setLabel('Next').setStyle(ButtonStyle.Secondary).setDisabled(page >= pageCount - 1),
+      );
+      const payload = { embeds: [historyEmbed], components: [controls] };
+      return parts.length > 2 ? i.update(payload) : i.reply({ ...payload, ephemeral: true });
+    }
 
     if (action === 'refresh') return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
     if (action === 'close') return i.update({ content: '✖️ Closed.', embeds: [], components: [] });
@@ -270,6 +306,19 @@ module.exports = {
     }
   },
   async onSelect(i, ctx) {
+    if (i.customId === 'usr:purgeAmount') {
+      if (!i.member.permissions.has(PermissionFlagsBits.ManageMessages)) return err(i, 'You need the **Manage Messages** permission.');
+      const userId = i.client.purgeUsers?.get(i.user.id) ?? i.client.userPanels?.get(i.user.id);
+      const amount = parseInt(i.values[0], 10);
+      await i.deferUpdate();
+      const messages = await i.channel.messages.fetch({ limit: 100 });
+      const targets = [...messages.values()]
+        .filter(message => !userId || message.author.id === userId)
+        .slice(0, amount);
+      await i.channel.bulkDelete(targets, true).catch(() => {});
+      i.client.purgeUsers?.delete(i.user.id);
+      return i.editReply({ content: `🗑️ Deleted **${targets.length}** message(s).`, components: [] });
+    }
     const memberId = i.client.userPanels?.get(i.user.id);
     const member = memberId && await i.guild.members.fetch(memberId).catch(() => null);
     if (!member) return err(i, 'Session expired — run `/user` again.');

@@ -62,7 +62,7 @@ function hpWarnPayload(h) {
 }
 
 const command = {
-  data: new SlashCommandBuilder().setName('honeypot').setDescription('🍯 Anti-raid trap channels — all buttons, one command')
+  data: new SlashCommandBuilder().setName('honeypot').setDescription('Anti-raid trap channels — all buttons, one command')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   ns: 'hpot',
   embed(g) {

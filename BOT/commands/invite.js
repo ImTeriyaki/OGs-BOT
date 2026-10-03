@@ -24,7 +24,7 @@ function inviteLink(client) {
 }
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('invite').setDescription('🔗 Invite the bot'),
+  data: new SlashCommandBuilder().setName('invite').setDescription('Invite the bot'),
   async run(i) {
     const invite = await inviteLink(i.client);
     return i.reply({

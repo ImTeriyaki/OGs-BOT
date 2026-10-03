@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, PermissionFl
 const { colors, row } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('slowmode').setDescription('🐢 Set channel slowmode — dropdown presets')
+  data: new SlashCommandBuilder().setName('slowmode').setDescription('Set channel slowmode — dropdown presets')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
   ns: 'slow',
   async run(i) {

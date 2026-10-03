@@ -13,7 +13,7 @@ const webhookAvatar = () => (fs.existsSync(AVATAR_PATH) ? fs.readFileSync(AVATAR
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('embed')
-    .setDescription('📨 Set up a webhook here, then paste JSON from an embed builder to send it')
+    .setDescription('Set up a webhook here, then paste JSON from an embed builder to send it')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageWebhooks),
   ns: 'emb',
   async run(i, ctx) {

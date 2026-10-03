@@ -144,7 +144,7 @@ async function jcTransfer(vc, data, newOwnerId, ctx, reason = 'left') {
 commands.push({
   data: new SlashCommandBuilder()
     .setName('jointocreate')
-    .setDescription('🎙️ Join-to-Create voice lobbies — pick lobby & category from dropdowns')
+    .setDescription('Join-to-Create voice lobbies — pick lobby & category from dropdowns')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'jtc',
 
@@ -488,7 +488,7 @@ function vcAdminEmbed(guild) {
 
 commands.push({
   data: new SlashCommandBuilder().setName('vcadmin')
-    .setDescription('🛡️ Select and manage any temporary VC, and protect people/roles from /vc actions')
+    .setDescription('Select and manage any temporary VC, and protect people/roles from /vc actions')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   ns: 'vcadmin',
 

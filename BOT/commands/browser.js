@@ -93,7 +93,7 @@ function quickLaunchRows(page, commands) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('commands')
-    .setDescription('📋 Browse every command — descriptions, usage, categories & pages (admin reference)')
+    .setDescription('Browse every command — descriptions, usage, categories & pages (admin reference)')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'hp',
   run: (i, ctx) => i.reply({ embeds: [pageEmbed(0)], components: [...pageRow(0), ...quickLaunchRows(0, ctx.commands)], ephemeral: true }),

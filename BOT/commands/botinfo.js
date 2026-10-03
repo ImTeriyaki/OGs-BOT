@@ -22,8 +22,23 @@ function requireAdmin(i) {
   return true;
 }
 
+function statusPanel() {
+  return [
+    row(menu('bi:presence', '🟢 Pick a presence…', [
+      { label: 'Online', value: 'online', emoji: '🟢' },
+      { label: 'Idle', value: 'idle', emoji: '🌙' },
+      { label: 'Do Not Disturb', value: 'dnd', emoji: '⛔' },
+      { label: 'Invisible', value: 'invisible', emoji: '⚫' },
+    ])),
+    row(menu('bi:activity', '🎭 Pick an activity type…', [
+      ...Object.entries(ACTIVITY_TYPES).map(([k, v]) => ({ label: v.label, value: k, emoji: v.emoji })),
+      { label: 'Clear status', value: 'clear', emoji: '🧹' },
+    ])),
+  ];
+}
+
 module.exports = {
-  data: new SlashCommandBuilder().setName('botinfo').setDescription('🤖 Bot information'),
+  data: new SlashCommandBuilder().setName('botinfo').setDescription('Bot information'),
   ns: 'bi',
   embed(i, ctx) {
     return new EmbedBuilder()
@@ -50,18 +65,7 @@ module.exports = {
     if (!requireAdmin(i)) return;
     return i.reply({
       content: '🎭 Set the bot\'s presence, pick an activity type to set custom text, or clear the status entirely:',
-      components: [
-        row(menu('bi:presence', '🟢 Pick a presence…', [
-          { label: 'Online', value: 'online', emoji: '🟢' },
-          { label: 'Idle', value: 'idle', emoji: '🌙' },
-          { label: 'Do Not Disturb', value: 'dnd', emoji: '⛔' },
-          { label: 'Invisible', value: 'invisible', emoji: '⚫' },
-        ])),
-        row(menu('bi:activity', '🎭 Pick an activity type…', [
-          ...Object.entries(ACTIVITY_TYPES).map(([k, v]) => ({ label: v.label, value: k, emoji: v.emoji })),
-          { label: 'Clear status', value: 'clear', emoji: '🧹' },
-        ])),
-      ],
+      components: statusPanel(),
       ephemeral: true,
     });
   },
@@ -69,13 +73,19 @@ module.exports = {
     if (i.customId === 'bi:presence') {
       if (!requireAdmin(i)) return;
       i.client.user.setStatus(i.values[0]);
-      return i.update({ content: `🟢 Presence set to **${i.values[0]}**.`, components: [] });
+      return i.update({
+        content: `🟢 Presence set to **${i.values[0]}**. You can keep choosing an activity type below.`,
+        components: statusPanel(),
+      });
     }
     if (i.customId === 'bi:activity') {
       if (!requireAdmin(i)) return;
       if (i.values[0] === 'clear') {
         i.client.user.setActivity(null);
-        return i.update({ content: '🧹 Status cleared.', components: [] });
+        return i.update({
+          content: '🧹 Status cleared. You can choose a new status below.',
+          components: statusPanel(),
+        });
       }
       const modal = new ModalBuilder().setCustomId(`bi:activityModal:${i.values[0]}`).setTitle('Set Status Text');
       modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel('Status text')

@@ -2,7 +2,7 @@ const { SlashCommandBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = re
 const { row, err, textChannels } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('say').setDescription('💬 Make the bot say something')
+  data: new SlashCommandBuilder().setName('say').setDescription('Make the bot say something')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addStringOption(o => o.setName('message').setDescription('Message').setRequired(true).setMaxLength(2000)),
   ns: 'sy',

@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 const { colors } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('inrole').setDescription('👥 List members with a role')
+  data: new SlashCommandBuilder().setName('inrole').setDescription('List members with a role')
     .addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
   async run(i) {

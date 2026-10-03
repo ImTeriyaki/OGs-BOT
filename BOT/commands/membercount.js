@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, StringSel
 const { colors, row, err } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('membercount').setDescription('👥 Member count breakdown with live counters'),
+  data: new SlashCommandBuilder().setName('membercount').setDescription('Member count breakdown with live counters'),
   ns: 'mcount',
   embed(i) {
     const members = i.guild.members.cache;

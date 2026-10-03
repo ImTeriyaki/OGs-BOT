@@ -4,7 +4,7 @@ const { row } = require('./_shared');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('purge')
-    .setDescription('🧹 Bulk delete messages — pick the amount from a dropdown')
+    .setDescription('Bulk delete messages — pick the amount from a dropdown')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addUserOption(o => o.setName('user').setDescription('Only delete from this user')),
   ns: 'prg',

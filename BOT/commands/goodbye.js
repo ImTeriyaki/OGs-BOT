@@ -7,7 +7,7 @@ const { colors, row, err, menu, GOODBYE_TEMPLATES, MSG_COLORS, msgState, msgPrev
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('goodbye')
-    .setDescription('⚙️ Configure the goodbye message — all buttons, no typing')
+    .setDescription('Configure the goodbye message — all buttons, no typing')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'gbye',
   panel(i, s) {

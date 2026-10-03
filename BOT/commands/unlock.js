@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 const { colors } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('unlock').setDescription('🔓 Unlock this channel')
+  data: new SlashCommandBuilder().setName('unlock').setDescription('Unlock this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
   async run(i) {
     await i.channel.permissionOverwrites.edit(i.guild.id, { SendMessages: null });

@@ -212,7 +212,7 @@ function afDashboardPanel(a) {
 const command = {
   data: new SlashCommandBuilder()
     .setName('autoforward')
-    .setDescription('🎬 Auto-Forward Clips — route video clips to private/public clip channels (video only)')
+    .setDescription('Auto-Forward Clips — route video clips to private/public clip channels (video only)')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'afwd',
 

@@ -7,7 +7,7 @@ const { colors, row, err, menu, WELCOME_TEMPLATES, MSG_COLORS, msgState, msgPrev
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('welcome')
-    .setDescription('⚙️ Configure the welcome message — all buttons, no typing')
+    .setDescription('Configure the welcome message — all buttons, no typing')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'wlcm',
   panel(i, g) {

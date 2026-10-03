@@ -4,7 +4,7 @@ const { colors, row, err, menu, categories } = require('./_shared');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('ticket')
-    .setDescription('🎫 Post a support ticket panel — dropdown setup')
+    .setDescription('Post a support ticket panel — dropdown setup')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'tkt',
   async run(i, ctx) {

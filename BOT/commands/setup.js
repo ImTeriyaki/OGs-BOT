@@ -5,7 +5,6 @@ const {
 const { colors, row, err, textChannels, voiceChannels, categories, menu, msgState } = require('./_shared');
 const { jcState } = require('./jointocreate');
 const { hpState, hpWarnPayload } = require('./honeypot');
-const { afState, afNewRoute } = require('./autoforward');
 
 /* ═══════════════════════════ /setup — quick-start wizard ═══════════════════════════
    For each channel-dependent auto-feature: pick an existing channel, or have the bot
@@ -31,7 +30,6 @@ function setupEmbed(i, g) {
   const w = g.welcome ?? {};
   const gb = g.goodbye ?? {};
   const h = g.honeypot ?? {};
-  const af = g.autoforward ?? {};
   const cat = jc.categoryId ? i.guild.channels.cache.get(jc.categoryId) : null;
   return new EmbedBuilder()
     .setTitle('🧭 Quick Setup')
@@ -44,7 +42,6 @@ function setupEmbed(i, g) {
       + `👋 **Welcome** — ${w.channelId ? `<#${w.channelId}>` : '*not set*'} (${w.enabled ? 'enabled' : 'disabled'})\n`
       + `🚪 **Goodbye** — ${gb.channelId ? `<#${gb.channelId}>` : '*not set*'} (${gb.enabled ? 'enabled' : 'disabled'})\n`
       + `🍯 **Honeypot** — Trap: ${h.channelIds?.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*not set*'} (${h.enabled ? 'deployed' : 'disabled'}) • Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}\n`
-      + `⏩ **Auto-Forward** — ${af.routes?.length ? `${af.routes.length} route(s)` : '*not set*'} (${af.enabled ? 'enabled' : 'disabled'})\n`
       + `🔔 **Online Alerts** — ${g.onlineChannelId ? `<#${g.onlineChannelId}>` : '*not set*'}\n`
       + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}`,
     )
@@ -66,7 +63,6 @@ function dashboardPanel() {
     row(
       new ButtonBuilder().setCustomId('setup:wlcm').setLabel('👋 Welcome').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:gbye').setLabel('🚪 Goodbye').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setup:afwd').setLabel('⏩ Auto-Forward').setStyle(ButtonStyle.Primary),
     ),
     row(
       new ButtonBuilder().setCustomId('setup:ping').setLabel('🔔 Online Alerts').setStyle(ButtonStyle.Primary),
@@ -124,30 +120,6 @@ function hpotLogStepView() {
   };
 }
 
-/* step 2 of auto-forward: the source channel is already resolved and embedded in the customId */
-function afwdDestStepView(srcId) {
-  return {
-    content: '⏩ **Step 2/2** — pick the channel clips should be forwarded to, or have the bot create one:',
-    embeds: [],
-    components: [pickOrCreatePanel(`setup:afwdDestPick:${srcId}`, `setup:afwdDestCreate:${srcId}`, '✨ Create #highlights'), navRow()],
-  };
-}
-
-/* creates (or reuses) the route watching srcId and points it at destId — mirrors /autoforward's own add+destSel logic */
-function afwdUpsertRoute(g, srcId, destId) {
-  const a = afState(g);
-  let r = a.routes.find(x => x.channelIds?.includes(srcId));
-  if (!r) {
-    r = afNewRoute();
-    r.name = 'Quick Setup';
-    r.channelIds = [srcId];
-    a.routes.push(r);
-  }
-  r.destinationChannelId = destId;
-  a.enabled = true;
-  return r;
-}
-
 /* deploy the trap warning message into a newly-set honeypot channel, mirroring /honeypot's own toggle/channelsSel logic */
 async function hpotDeployTrap(guild, h, channelId) {
   h.enabled = true;
@@ -163,7 +135,7 @@ async function hpotDeployTrap(guild, h, channelId) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('🧭 Quick-start wizard — wire up channels for every auto-feature')
+    .setDescription('Quick-start wizard — wire up channels for every auto-feature')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   ns: 'setup',
 
@@ -239,14 +211,6 @@ module.exports = {
         .setPlaceholder('https://discord.gg/yourcode').setRequired(true)));
       return i.showModal(modal);
     }
-    if (action === 'afwd') {
-      return i.update({
-        content: '⏩ **Auto-Forward** — **Step 1/2** — pick the channel to watch for clips, or have the bot create one:',
-        embeds: [],
-        components: [pickOrCreatePanel('setup:afwdSrcPick', 'setup:afwdSrcCreate', '✨ Create #clips'), navRow()],
-      });
-    }
-
     /* ── "pick existing" buttons open a channel select ── */
     if (action === 'jtcLobbyPick') {
       const chans = voiceChannels(i, 25);
@@ -388,33 +352,6 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} — I'll announce here when I come online.` });
     }
-    if (action === 'afwdSrcPick') {
-      const chans = textChannels(i, 25);
-      if (!chans.length) return err(i, 'No text channels found.');
-      const sel = menu('setup:afwdSrcSel', '⏩ Pick the channel to watch…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '⏩' })));
-      return i.update({ content: '⏩ **Step 1/2** — pick the channel to watch for clips:', embeds: [], components: [row(sel), navRow()] });
-    }
-    if (action === 'afwdSrcCreate') {
-      const ch = await i.guild.channels.create({ name: 'clips', type: ChannelType.GuildText }).catch(() => null);
-      if (!ch) return err(i, "Couldn't create the channel — check my permissions.");
-      const next = afwdDestStepView(ch.id);
-      return i.update({ ...next, content: `✅ Created ${ch} to watch for clips.\n\n${next.content}` });
-    }
-    if (action === 'afwdDestPick') {
-      const srcId = parts[2];
-      const chans = textChannels(i, 25);
-      if (!chans.length) return err(i, 'No text channels found.');
-      const sel = menu(`setup:afwdDestSel:${srcId}`, '⏩ Pick the destination channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🎯' })));
-      return i.update({ content: '⏩ Pick the channel clips get forwarded to:', components: [row(sel), navRow()] });
-    }
-    if (action === 'afwdDestCreate') {
-      const srcId = parts[2];
-      const ch = await i.guild.channels.create({ name: 'highlights', type: ChannelType.GuildText }).catch(() => null);
-      if (!ch) return err(i, "Couldn't create the channel — check my permissions.");
-      afwdUpsertRoute(g, srcId, ch.id);
-      ctx.save();
-      return i.update({ ...dashboardView(i, g), content: `✅ Clips will be forwarded to ${ch}.` });
-    }
     if (action === 'gbyeChCreate') {
       const catId = parts[2];
       const ch = await i.guild.channels.create({
@@ -484,18 +421,6 @@ module.exports = {
       g.onlineChannelId = i.values[0];
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ I'll announce online status in <#${g.onlineChannelId}>.` });
-    }
-    if (i.customId === 'setup:afwdSrcSel') {
-      const srcId = i.values[0];
-      const next = afwdDestStepView(srcId);
-      return i.update({ ...next, content: `✅ Watching <#${srcId}> for clips.\n\n${next.content}` });
-    }
-    if (i.customId.startsWith('setup:afwdDestSel:')) {
-      const srcId = i.customId.split(':')[2];
-      const destId = i.values[0];
-      afwdUpsertRoute(g, srcId, destId);
-      ctx.save();
-      return i.update({ ...dashboardView(i, g), content: `✅ Clips from <#${srcId}> will be forwarded to <#${destId}>.` });
     }
     if (i.customId.startsWith('setup:gbyeChSel:')) {
       msgState(g, 'goodbye');

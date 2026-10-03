@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelTy
 const { colors, row, err } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('channelinfo').setDescription('📺 Channel information — includes lock/unlock/delete controls')
+  data: new SlashCommandBuilder().setName('channelinfo').setDescription('Channel information — includes lock/unlock/delete controls')
     .addChannelOption(o => o.setName('channel').setDescription('Channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildVoice))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
   ns: 'ci',

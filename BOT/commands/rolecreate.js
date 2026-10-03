@@ -2,7 +2,7 @@ const { SlashCommandBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = re
 const { row, err, MSG_COLORS } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('rolecreate').setDescription('🏷️ Create a role — color from a dropdown')
+  data: new SlashCommandBuilder().setName('rolecreate').setDescription('Create a role — color from a dropdown')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
     .addStringOption(o => o.setName('name').setDescription('Role name').setRequired(true).setMaxLength(100)),
   ns: 'rc',

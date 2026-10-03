@@ -4,7 +4,7 @@ const { colors, row, rolesMenu } = require('./_shared');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('autorole')
-    .setDescription('🏷️ Roles automatically given when members join — multi-select')
+    .setDescription('Roles automatically given when members join — multi-select')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
   ns: 'arole',
   buildMenu(i, g) {

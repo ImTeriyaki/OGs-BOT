@@ -4,7 +4,7 @@ const { colors, row, err, rolesMenu } = require('./_shared');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('selfroles')
-    .setDescription('🎫 Roles members can give themselves — multi-select admin panel')
+    .setDescription('Roles members can give themselves — multi-select admin panel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
   ns: 'srole',
   buildMenu(i, g) {

@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, Permissio
 const { colors, row, err } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('ping').setDescription('🏓 Bot latency'),
+  data: new SlashCommandBuilder().setName('ping').setDescription('Bot latency'),
   ns: 'pg',
   embed(i, sent) {
     return new EmbedBuilder()

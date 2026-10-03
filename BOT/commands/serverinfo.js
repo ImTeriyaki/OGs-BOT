@@ -15,7 +15,7 @@ function inviteEmbed(g) {
 const inviteButtons = () => [row(new ButtonBuilder().setCustomId('si:inviteSet').setLabel('✏️ Set Invite Link').setStyle(ButtonStyle.Secondary))];
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('serverinfo').setDescription('📊 Server information'),
+  data: new SlashCommandBuilder().setName('serverinfo').setDescription('Server information'),
   ns: 'si',
   embed(i) {
     const { guild } = i;

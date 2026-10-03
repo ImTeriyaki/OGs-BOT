@@ -1,4 +1,3 @@
-
 const {
   Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType, PermissionFlagsBits,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
@@ -7,7 +6,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const {
-  commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerAutoForward,
+  commands, registerJoinToCreate, registerHoneypot, registerDmMessages,
 } = require('./commands/index.js');
 const { msgDefaults } = require('./commands/_shared');
 
@@ -40,6 +39,13 @@ const store = {
 /* in-memory state */
 const snipes = new Map();     // channelId -> last deleted message
 const editSnipes = new Map(); // channelId -> last edited message
+const messageHistory = new Map();
+function recordMessageHistory(channelId, event) {
+  const history = messageHistory.get(channelId) ?? [];
+  history.unshift(event);
+  if (history.length > 50) history.length = 50;
+  messageHistory.set(channelId, history);
+}
 
 /* ═══════════════ CLIENT ═══════════════ */
 const client = new Client({
@@ -60,6 +66,7 @@ const ctx = {
   save: store.save,
   snipes,
   editSnipes,
+  messageHistory,
   client,
   commands,
 };
@@ -254,23 +261,29 @@ client.on(Events.GuildMemberRemove, async (member) => {
 /* snipe storage */
 client.on(Events.MessageDelete, (msg) => {
   if (!msg.guild || msg.author?.bot) return;
-  snipes.set(msg.channel.id, {
+  const event = {
+    type: 'deleted',
     author: msg.author.username,
     avatar: msg.author.displayAvatarURL(),
     content: msg.content,
     image: msg.attachments.first()?.url ?? null,
     at: Date.now(),
-  });
+  };
+  snipes.set(msg.channel.id, event);
+  recordMessageHistory(msg.channel.id, event);
 });
 client.on(Events.MessageUpdate, (oldM, newM) => {
   if (!newM.guild || newM.author?.bot || oldM.content === newM.content) return;
-  editSnipes.set(newM.channel.id, {
+  const event = {
+    type: 'edited',
     author: newM.author.username,
     avatar: newM.author.displayAvatarURL(),
     before: oldM.content,
     after: newM.content,
     at: Date.now(),
-  });
+  };
+  editSnipes.set(newM.channel.id, event);
+  recordMessageHistory(newM.channel.id, event);
 });
 
 /* AFK notice + auto-clear */
@@ -298,9 +311,6 @@ registerHoneypot(client, ctx);
 /* welcome-DM engine also lives in commands.js — sends the configured
    greeting as a DM when welcome "DM Greeting" is enabled */
 registerDmMessages(client, ctx);
-
-/* auto-forward engine lives in commands.js — forwards configured video clips */
-registerAutoForward(client, ctx);
 
 /* join-to-create engine lives in commands.js — creates tracked temporary VCs */
 registerJoinToCreate(client, ctx);

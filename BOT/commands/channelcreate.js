@@ -2,7 +2,7 @@ const { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ChannelType, Permission
 const { row, err, menu, categories } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('channelcreate').setDescription('📺 Create a channel — type from buttons')
+  data: new SlashCommandBuilder().setName('channelcreate').setDescription('Create a channel — type from buttons')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .addStringOption(o => o.setName('name').setDescription('Channel name').setRequired(true).setMaxLength(100)),
   ns: 'cc',

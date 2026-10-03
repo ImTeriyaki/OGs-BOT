@@ -2,7 +2,7 @@ const { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, T
 const { row } = require('./_shared');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('remind').setDescription('⏰ Set a reminder — duration from a dropdown'),
+  data: new SlashCommandBuilder().setName('remind').setDescription('Set a reminder — duration from a dropdown'),
   ns: 'rmd',
   async run(i) {
     const sel = new StringSelectMenuBuilder().setCustomId('rmd:dur').setPlaceholder('⏰ Remind me in…').addOptions(
