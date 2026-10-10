@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { ActionRowBuilder, ChannelType, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
 
 /* ═══════════════════════════ shared ═══════════════════════════ */
@@ -25,6 +27,23 @@ const categories = (i, limit = 25) =>
 const rolesMenu = (i) =>
   i.guild.roles.cache.filter(r => !r.managed && r.id !== i.guild.id).first(25)
     .map(r => ({ label: r.name.slice(0, 100), value: r.id, emoji: '🏷️' }));
+
+/* ═══════════════════════════ admin action log ═══════════════════════════
+   every moderation action (ban/kick/timeout/warn/etc.) appends one line here,
+   so admins have a plain-text trail they can view or download — see /logs' buttons. */
+const ADMIN_LOG_PATH = path.join(__dirname, '..', '..', 'admin-log.txt');
+
+function logAdmin(i, action, detail = '') {
+  const line = `[${new Date().toISOString()}] guild:${i.guildId} (${i.guild?.name ?? 'unknown'}) | ${i.user.tag} (${i.user.id}) | ${action}${detail ? ' — ' + detail : ''}\n`;
+  fs.appendFile(ADMIN_LOG_PATH, line, () => {});
+}
+
+/* lines for one guild only — the log file is shared across every guild the bot is in */
+function readAdminLog(guildId, limit = Infinity) {
+  if (!fs.existsSync(ADMIN_LOG_PATH)) return [];
+  const lines = fs.readFileSync(ADMIN_LOG_PATH, 'utf8').split('\n').filter(l => l.includes(`guild:${guildId} `));
+  return lines.slice(-limit);
+}
 
 function formatDuration(milliseconds) {
   let seconds = Math.floor(Math.max(0, milliseconds) / 1000);
@@ -106,4 +125,5 @@ function msgChannelRow(ns, i, s) {
 module.exports = {
   colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration,
   WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
+  logAdmin, readAdminLog, ADMIN_LOG_PATH,
 };

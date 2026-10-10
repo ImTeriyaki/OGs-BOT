@@ -9,6 +9,7 @@ const {
   commands, registerJoinToCreate, registerHoneypot, registerDmMessages,
 } = require('./commands/index.js');
 const { msgDefaults } = require('./commands/_shared');
+const { runCleanup } = require('./cleanup');
 
 
 /* ═══════════════ STORAGE ═══════════════ */
@@ -184,6 +185,7 @@ client.once(Events.ClientReady, async (readyClient) => {
 
   for (const g of readyClient.guilds.cache.values()) await registerGuild(g);
   updateCounters().catch(() => {});
+  runCleanup(client, db, store.save, snipes, editSnipes, messageHistory).catch(() => {});
 });
 
 client.on(Events.GuildCreate, registerGuild);
@@ -322,6 +324,7 @@ async function updateCounters() {
   }
 }
 setInterval(() => updateCounters().catch(() => {}), 2 * 60 * 1000); // every 2 minutes
+setInterval(() => runCleanup(client, db, store.save, snipes, editSnipes, messageHistory).catch(() => {}), 6 * 60 * 60 * 1000); // every 6 hours
 
 /* presence updates fire constantly — throttle counters to once per minute */
 let presenceDirty = false;
