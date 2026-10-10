@@ -14,7 +14,21 @@ const { runCleanup } = require('./cleanup');
 
 /* ═══════════════ STORAGE ═══════════════ */
 const DB_PATH = path.join(__dirname, '..', 'data.json');
-let db = fs.existsSync(DB_PATH) ? JSON.parse(fs.readFileSync(DB_PATH, 'utf8')) : {};
+
+function loadDb() {
+  if (!fs.existsSync(DB_PATH)) return {};
+  const raw = fs.readFileSync(DB_PATH, 'utf8');
+  if (!raw.trim()) return {}; // empty file (e.g. truncated by a crash mid-write) — start fresh instead of crashing
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const corruptPath = `${DB_PATH}.corrupt.${Date.now()}`;
+    fs.copyFileSync(DB_PATH, corruptPath);
+    console.error(`⚠️ data.json is corrupt (${error.message}) — saved a copy to ${corruptPath} and starting fresh.`);
+    return {};
+  }
+}
+let db = loadDb();
 
 function defaultGuild() {
   return {
@@ -34,7 +48,12 @@ const store = {
     }
     return db[id];
   },
-  save() { fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2)); },
+  save() {
+    /* write-then-rename so a crash mid-write can't leave data.json empty/truncated again */
+    const tmpPath = `${DB_PATH}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(db, null, 2));
+    fs.renameSync(tmpPath, DB_PATH);
+  },
 };
 
 /* in-memory state */
