@@ -34,7 +34,7 @@ function defaultGuild() {
   return {
     welcome: msgDefaults('welcome'), goodbye: msgDefaults('goodbye'), tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {}, autoroles: [], selfroles: [],
-    logsChannelId: null, counterIds: null,
+    logsChannelId: null, modLogChannelId: null, counterIds: null,
     ownerId: null, adminRoleId: null,
   };
 }

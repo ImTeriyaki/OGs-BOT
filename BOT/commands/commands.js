@@ -56,7 +56,7 @@ const CATEGORIES = [
       ['/inrole', 'List all members with a specific role', 'Paginated member list for any role, with counts.'],
       ['/channelcreate', 'Create a channel from the command UI', 'Full creation panel: name, type, topic, NSFW and position.'],
       ['/rolecreate', 'Create a role with a color picker', 'Create roles with a color picker, icon and permission presets.'],
-      ['/ping', 'Check bot latency and API latency', 'WebSocket ping and round-trip API latency.'],
+      ['/ping', 'Full connection diagnostics (admin only)', 'Roundtrip, WebSocket heartbeat, REST latency, uptime, memory, and version info.'],
       ['/uptime', 'Show how long the bot has been online', 'Precise uptime with a human-readable breakdown.'],
       ['/invite', 'Get the bot invite link', 'Button link with the correct permissions pre-selected.'],
     ],

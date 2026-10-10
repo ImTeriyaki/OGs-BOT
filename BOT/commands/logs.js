@@ -10,16 +10,25 @@ module.exports = {
   async run(i, ctx) {
     const g = ctx.guild(i.guildId);
     const chans = textChannels(i, 24); /* leave room for the "Disable" option — 25 max per select */
-    const sel = new StringSelectMenuBuilder().setCustomId('logs:pick').setPlaceholder('📜 Pick the error log channel…')
+    const errSel = new StringSelectMenuBuilder().setCustomId('logs:pick').setPlaceholder('📜 Pick the error log channel…')
       .addOptions(
         { label: 'Disable error logging', value: 'off', emoji: '❌' },
         ...chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '📜', default: c.id === g.logsChannelId })),
       );
+    const modSel = new StringSelectMenuBuilder().setCustomId('logs:modPick').setPlaceholder('🛡️ Pick the mod action log channel…')
+      .addOptions(
+        { label: 'Disable mod action logging', value: 'off', emoji: '❌' },
+        ...chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🛡️', default: c.id === g.modLogChannelId })),
+      );
     return i.reply({
-      embeds: [new EmbedBuilder().setTitle('📜 Error Logs').setColor(colors.main)
-        .setDescription(`Current: ${g.logsChannelId ? `<#${g.logsChannelId}>` : '*disabled*'}\n\nErrors will appear with codes like \`ERR-7F3A2B\`.`)],
+      embeds: [new EmbedBuilder().setTitle('📜 Logs').setColor(colors.main)
+        .setDescription([
+          `**Error log:** ${g.logsChannelId ? `<#${g.logsChannelId}>` : '*disabled*'} — errors appear with codes like \`ERR-7F3A2B\`.`,
+          `**Mod action log:** ${g.modLogChannelId ? `<#${g.modLogChannelId}>` : '*disabled*'} — styled embeds for ban/kick/mute/timeout/warn/etc.`,
+        ].join('\n'))],
       components: [
-        row(sel),
+        row(errSel),
+        row(modSel),
         row(
           new ButtonBuilder().setCustomId('logs:view').setLabel('🖨️ View Admin Log').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('logs:download').setLabel('📄 Download Admin Log').setStyle(ButtonStyle.Secondary),
@@ -30,6 +39,11 @@ module.exports = {
   },
   async onSelect(i, ctx) {
     const g = ctx.guild(i.guildId);
+    if (i.customId === 'logs:modPick') {
+      g.modLogChannelId = i.values[0] === 'off' ? null : i.values[0];
+      ctx.save();
+      return i.update({ content: g.modLogChannelId ? `🛡️ Mod actions will be logged in <#${g.modLogChannelId}>.` : '🛡️ Mod action logging disabled.', components: [] });
+    }
     g.logsChannelId = i.values[0] === 'off' ? null : i.values[0];
     ctx.save();
     return i.update({ content: g.logsChannelId ? `📜 Errors will be logged in <#${g.logsChannelId}>.` : '📜 Error logging disabled.', components: [] });

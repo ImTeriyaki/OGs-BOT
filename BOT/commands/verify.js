@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits,
 } = require('discord.js');
-const { colors, row, err } = require('./_shared');
+const { colors, row, err, logAdmin } = require('./_shared');
 
 /* ═══════════════════════════ /verify — captcha gate ═══════════════════════════
    /verify posts a panel; clicking it opens a modal showing a short code to type
@@ -51,6 +51,14 @@ async function postVerifyLog(guild, g, status, member, reason) {
   await ch.send({ embeds: [verifyLogEmbed(member, status, reason)] }).catch(() => {});
 }
 
+/* records every verification attempt both to the optional log channel (embed, see
+   screenshot this mirrors) and to the plain-text admin log file so it shows up in
+   /logs' View/Download buttons alongside other admin-visible activity. */
+async function logVerify(i, g, status, reason) {
+  await postVerifyLog(i.guild, g, status, i.member, reason);
+  logAdmin(i, `verify-${status}`, `${i.user.tag} (${i.user.id})${reason ? ` — ${reason}` : ''}`);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('verify')
@@ -76,7 +84,7 @@ module.exports = {
 
     const code = genCode();
     pending.set(`${i.guildId}:${i.user.id}`, { code, expiresAt: Date.now() + 5 * 60_000 });
-    await postVerifyLog(i.guild, g, 'initialized', i.member);
+    await logVerify(i, g, 'initialized');
     const modal = new ModalBuilder().setCustomId('vrf:modal').setTitle('Complete Verification');
     modal.addComponents(row(new TextInputBuilder().setCustomId('v').setLabel(`Type this code: ${code}`)
       .setStyle(TextInputStyle.Short).setMaxLength(10).setRequired(true)));
@@ -89,27 +97,27 @@ module.exports = {
     const entry = pending.get(key);
     if (!entry || entry.expiresAt < Date.now()) {
       pending.delete(key);
-      await postVerifyLog(i.guild, g, 'failed', i.member, 'timed_out');
+      await logVerify(i, g, 'failed', 'timed_out');
       return err(i, 'That code expired — click **Verify** again to get a new one.');
     }
     if (i.fields.getTextInputValue('v').trim().toUpperCase() !== entry.code) {
-      await postVerifyLog(i.guild, g, 'failed', i.member, 'incorrect_code');
+      await logVerify(i, g, 'failed', 'incorrect_code');
       return err(i, "That code doesn't match — click **Verify** again to get a new one.");
     }
     pending.delete(key);
 
     const role = g.verifyRoleId ? await i.guild.roles.fetch(g.verifyRoleId).catch(() => null) : null;
     if (!role) {
-      await postVerifyLog(i.guild, g, 'failed', i.member, 'role_missing');
+      await logVerify(i, g, 'failed', 'role_missing');
       return err(i, 'The verified role no longer exists — ask an admin to reconfigure it via `/setup`.');
     }
     if (!role.editable) {
-      await postVerifyLog(i.guild, g, 'failed', i.member, 'role_not_assignable');
+      await logVerify(i, g, 'failed', 'role_not_assignable');
       return err(i, "I can't assign that role — my highest role needs to be above it.");
     }
 
     await i.member.roles.add(role).catch(() => {});
-    await postVerifyLog(i.guild, g, 'succeeded', i.member);
+    await logVerify(i, g, 'succeeded');
     return i.reply({ content: `✅ Verified! You now have ${role}.`, ephemeral: true });
   },
 };

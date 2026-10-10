@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, PermissionFlagsBits,
 } = require('discord.js');
-const { colors, row, err, menu, rolesMenu, logAdmin } = require('./_shared');
+const { colors, row, err, menu, rolesMenu, recordAdminAction } = require('./_shared');
 
 /* server owner and holders of the guild's admin role are off-limits to /user's
    moderation actions — kick/ban/timeout already get this for free from Discord's
@@ -204,7 +204,7 @@ module.exports = {
       if (!s) return err(i, 'Session expired — click Ban again.');
       await i.guild.members.ban(member.id, { reason: `[by ${i.user.tag}] ${s.reason}`, deleteMessageSeconds: s.days * 86400 }).catch(() => {});
       i.client.userBan.delete(i.user.id);
-      logAdmin(i, 'ban', `${member.user.tag} (${member.id}) — ${s.reason}`);
+      recordAdminAction(i, g, 'ban', `${member.user}`, `${member.user.tag} (${member.id})`, { reason: s.reason });
       return i.update({ content: `🔨 Banned ${member.user} — *${s.reason}*${s.days ? ` (messages from last ${s.days}d deleted)` : ''}`, components: [] });
     }
 
@@ -215,7 +215,7 @@ module.exports = {
       const timedOut = member.communicationDisabledUntilTimestamp && member.communicationDisabledUntilTimestamp > Date.now();
       if (timedOut) {
         await member.timeout(null);
-        logAdmin(i, 'timeout-remove', `${member.user.tag} (${member.id})`);
+        recordAdminAction(i, g, 'timeout-remove', `${member.user}`, `${member.user.tag} (${member.id})`);
         return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
       }
       if (!member.moderatable) return err(i, "I can't timeout that member.");
@@ -239,7 +239,7 @@ module.exports = {
       if (!member.voice.channelId) return err(i, 'That member is not in a voice channel.');
       const wasMuted = member.voice.serverMute;
       await member.voice.setMute(!wasMuted, `[by ${i.user.tag}]`).catch(() => {});
-      logAdmin(i, wasMuted ? 'unmute' : 'mute', `${member.user.tag} (${member.id})`);
+      recordAdminAction(i, g, wasMuted ? 'unmute' : 'mute', `${member.user}`, `${member.user.tag} (${member.id})`);
       return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
     }
 
@@ -278,7 +278,7 @@ module.exports = {
       if (!i.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return err(i, 'You need the **Moderate Members** permission.');
       if (g.warns) delete g.warns[member.id];
       ctx.save();
-      logAdmin(i, 'clear-warnings', `${member.user.tag} (${member.id})`);
+      recordAdminAction(i, g, 'clear-warnings', `${member.user}`, `${member.user.tag} (${member.id})`);
       return i.update({ embeds: [userEmbed(member, g)], components: userRows(member) });
     }
 
@@ -322,7 +322,7 @@ module.exports = {
         .slice(0, amount);
       await i.channel.bulkDelete(targets, true).catch(() => {});
       i.client.purgeUsers?.delete(i.user.id);
-      logAdmin(i, 'purge', `${targets.length} message(s) in #${i.channel.name}`);
+      recordAdminAction(i, g, 'purge', `${i.channel}`, `#${i.channel.name}`, { reason: `${targets.length} message(s)` });
       return i.editReply({ content: `🗑️ Deleted **${targets.length}** message(s).`, components: [] });
     }
     const memberId = i.client.userPanels?.get(i.user.id);
@@ -334,7 +334,7 @@ module.exports = {
       const reason = i.values[0];
       await member.send(`You were kicked from **${i.guild.name}**. Reason: ${reason}`).catch(() => {});
       await member.kick(`[by ${i.user.tag}] ${reason}`);
-      logAdmin(i, 'kick', `${member.user.tag} (${member.id}) — ${reason}`);
+      recordAdminAction(i, g, 'kick', `${member.user}`, `${member.user.tag} (${member.id})`, { reason });
       return i.update({ content: `👢 Kicked ${member.user} — *${reason}*`, components: [] });
     }
 
@@ -350,8 +350,9 @@ module.exports = {
       const seconds = parseInt(i.values[0], 10);
       if (!member.moderatable) return err(i, "I can't timeout that member.");
       await member.timeout(seconds * 1000, `[by ${i.user.tag}]`);
-      logAdmin(i, 'timeout', `${member.user.tag} (${member.id}) — ${seconds}s`);
-      return i.update({ content: `🔇 ${member.user} timed out for **${seconds < 3600 ? `${seconds / 60} min` : seconds / 3600 < 24 ? `${seconds / 3600} hr` : `${seconds / 86400} day(s)`}**.`, components: [] });
+      const timeLabel = seconds < 3600 ? `${seconds / 60} min` : seconds / 3600 < 24 ? `${seconds / 3600} hr` : `${seconds / 86400} day(s)`;
+      recordAdminAction(i, g, 'timeout', `${member.user}`, `${member.user.tag} (${member.id})`, { timeLabel, endTimestamp: Date.now() + seconds * 1000 });
+      return i.update({ content: `🔇 ${member.user} timed out for **${timeLabel}**.`, components: [] });
     }
 
     if (i.customId === 'usr:warnReason') {
@@ -361,7 +362,7 @@ module.exports = {
       g.warns[member.id].push({ by: i.user.id, reason, at: Date.now() });
       ctx.save();
       await member.send(`⚠️ You were warned in **${i.guild.name}**: ${reason}`).catch(() => {});
-      logAdmin(i, 'warn', `${member.user.tag} (${member.id}) — ${reason}`);
+      recordAdminAction(i, g, 'warn', `${member.user}`, `${member.user.tag} (${member.id})`, { reason });
       return i.update({ content: `⚠️ Warned ${member.user} — *${reason}* (they now have **${g.warns[member.id].length}** warning(s)).`, components: [] });
     }
 
@@ -370,11 +371,11 @@ module.exports = {
       if (!role || !role.editable) return err(i, "I can't manage that role.");
       if (i.customId === 'usr:roleAddSel') await member.roles.add(role);
       else await member.roles.remove(role);
-      logAdmin(i, i.customId === 'usr:roleAddSel' ? 'role-add' : 'role-remove', `${role.name} ${i.customId === 'usr:roleAddSel' ? 'to' : 'from'} ${member.user.tag} (${member.id})`);
+      recordAdminAction(i, g, i.customId === 'usr:roleAddSel' ? 'role-add' : 'role-remove', `${member.user}`, `${member.user.tag} (${member.id})`, { reason: role.name });
       return i.update({ content: `${i.customId === 'usr:roleAddSel' ? '➕ Gave' : '➖ Removed'} ${role} ${i.customId === 'usr:roleAddSel' ? 'to' : 'from'} ${member.user}.`, components: [] });
     }
   },
-  async onModal(i) {
+  async onModal(i, ctx) {
     const memberId = i.client.userPanels?.get(i.user.id);
     const member = memberId && await i.guild.members.fetch(memberId).catch(() => null);
     if (!member) return err(i, 'Session expired — run `/user` again.');
@@ -382,7 +383,7 @@ module.exports = {
     if (i.customId === 'usr:nickModal') {
       const nick = i.fields.getTextInputValue('v').trim();
       await member.setNickname(nick || null).catch(() => {});
-      logAdmin(i, 'nickname', `${member.user.tag} (${member.id}) — ${nick || '*reset*'}`);
+      recordAdminAction(i, ctx.guild(i.guildId), 'nickname', `${member.user}`, `${member.user.tag} (${member.id})`, { reason: nick || '*reset*' });
       return i.reply({ content: nick ? `✏️ Nickname of ${member.user} set to **${nick}**.` : `✏️ Reset ${member.user}'s nickname.`, ephemeral: true });
     }
     if (i.customId === 'usr:dmModal') {

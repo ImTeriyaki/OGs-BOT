@@ -45,6 +45,57 @@ function readAdminLog(guildId, limit = Infinity) {
   return lines.slice(-limit);
 }
 
+/* rich per-action embeds posted to g.modLogChannelId (set via /logs), styled like:
+   "USER HAS BEEN MUTED" / "@admin has muted @target" / Reason + Time fields /
+   a Remaining Time field for actions with a real expiry. Uses Discord's own
+   <t:...:R> relative timestamp for Remaining Time so it live-counts-down with
+   zero bot-side polling or message edits. */
+const ACTION_META = {
+  ban: { title: 'USER HAS BEEN BANNED', verb: 'banned' },
+  kick: { title: 'USER HAS BEEN KICKED', verb: 'kicked' },
+  mute: { title: 'USER HAS BEEN MUTED', verb: 'muted' },
+  unmute: { title: 'USER HAS BEEN UNMUTED', verb: 'unmuted' },
+  timeout: { title: 'USER HAS BEEN TIMED OUT', verb: 'timed out' },
+  'timeout-remove': { title: 'TIMEOUT HAS BEEN REMOVED', verb: 'removed the timeout from' },
+  warn: { title: 'USER HAS BEEN WARNED', verb: 'warned' },
+  'clear-warnings': { title: 'WARNINGS HAVE BEEN CLEARED', verb: 'cleared the warnings of' },
+  'role-add': { title: 'A ROLE HAS BEEN ADDED', verb: 'added a role to' },
+  'role-remove': { title: 'A ROLE HAS BEEN REMOVED', verb: 'removed a role from' },
+  nickname: { title: 'A NICKNAME HAS BEEN CHANGED', verb: 'changed the nickname of' },
+  purge: { title: 'MESSAGES HAVE BEEN PURGED', verb: 'purged messages from' },
+  lock: { title: 'CHANNEL HAS BEEN LOCKED', verb: 'locked' },
+  unlock: { title: 'CHANNEL HAS BEEN UNLOCKED', verb: 'unlocked' },
+  slowmode: { title: 'SLOWMODE HAS BEEN UPDATED', verb: 'updated the slowmode of' },
+};
+
+async function postModLog(i, g, embed) {
+  if (!g.modLogChannelId) return;
+  const ch = await i.guild.channels.fetch(g.modLogChannelId).catch(() => null);
+  if (!ch) return;
+  await ch.send({ embeds: [embed] }).catch(() => {});
+}
+
+/* one call does both: appends the plain-text admin-log line AND, if a mod log
+   channel is configured, posts the styled embed. `target`/`targetLabel` are the
+   mention and plain-text form of whatever was acted on (a member or a channel). */
+async function recordAdminAction(i, g, action, target, targetLabel, { reason, timeLabel, endTimestamp } = {}) {
+  logAdmin(i, action, `${targetLabel}${reason ? ' — ' + reason : timeLabel ? ' — ' + timeLabel : ''}`);
+
+  const meta = ACTION_META[action];
+  if (!meta) return;
+  const fields = [];
+  if (reason) fields.push({ name: 'Reason', value: reason, inline: true });
+  if (timeLabel) fields.push({ name: 'Time', value: timeLabel, inline: true });
+  if (endTimestamp) fields.push({ name: 'Remaining Time', value: `<t:${Math.floor(endTimestamp / 1000)}:R>` });
+  const embed = new EmbedBuilder()
+    .setTitle(meta.title)
+    .setDescription(`${i.user} has ${meta.verb} ${target}`)
+    .setColor(colors.bad)
+    .setTimestamp();
+  if (fields.length) embed.addFields(fields);
+  await postModLog(i, g, embed);
+}
+
 function formatDuration(milliseconds) {
   let seconds = Math.floor(Math.max(0, milliseconds) / 1000);
   const days = Math.floor(seconds / 86400);
@@ -125,5 +176,5 @@ function msgChannelRow(ns, i, s) {
 module.exports = {
   colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration,
   WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
-  logAdmin, readAdminLog, ADMIN_LOG_PATH,
+  logAdmin, readAdminLog, ADMIN_LOG_PATH, recordAdminAction,
 };

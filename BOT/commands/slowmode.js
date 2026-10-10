@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
-const { colors, row, logAdmin } = require('./_shared');
+const { colors, row, recordAdminAction } = require('./_shared');
 
 module.exports = {
   data: new SlashCommandBuilder().setName('slowmode').setDescription('Set channel slowmode — dropdown presets')
@@ -16,10 +16,10 @@ module.exports = {
       ephemeral: true,
     });
   },
-  async onSelect(i) {
+  async onSelect(i, ctx) {
     const seconds = parseInt(i.values[0], 10);
     await i.channel.setRateLimitPerUser(seconds);
-    logAdmin(i, 'slowmode', `#${i.channel.name} — ${seconds}s`);
+    recordAdminAction(i, ctx.guild(i.guildId), 'slowmode', `${i.channel}`, `#${i.channel.name}`, { timeLabel: seconds === 0 ? 'Off' : `${seconds}s` });
     return i.update({ content: seconds === 0 ? '✅ Slowmode disabled.' : `✅ Slowmode set to **${seconds}s**.`, components: [] });
   },
 };
