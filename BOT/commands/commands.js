@@ -20,6 +20,7 @@ const CATEGORIES = [
       ['/ticket', 'Create a support ticket panel', 'Deploy a button panel that opens private staff-visible ticket channels.'],
       ['/logs', 'Set the bot’s log channel', 'Choose where moderation and server events get logged.'],
       ['/honeypot', 'Set up anti-raid trap channels', 'Invisible trap channels that auto-ban raid bots which join or type in them.'],
+      ['/verify', 'Post a captcha verification panel', 'Members click a button, solve a short typed captcha, and get the verified role set in /setup.'],
       ['/embed', 'Create rich Discord embeds using a webhook', 'Build and send clean webhook embeds, no bot branding.'],
       ['/refresh', 'Re-register slash commands instantly', 'Push application commands to Discord without restarting the bot.'],
     ],

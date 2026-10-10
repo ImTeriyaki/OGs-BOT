@@ -21,6 +21,7 @@ const commands = [];
 const JC_DEFAULTS = () => ({
   enabled: false, lobbyChannelId: null, categoryId: null, temp: {},
   protectedUserIds: [], protectedRoleIds: [],
+  lobbyDisabled: false, lobbyRestoreAt: null, lobbyBackup: null,
 });
 /* g.jointocreate.temp = { [vcId]: { ownerId } } */
 const jcState = (g) => {
@@ -28,8 +29,60 @@ const jcState = (g) => {
   if (!g.jointocreate.temp) g.jointocreate.temp = {};
   g.jointocreate.protectedUserIds ??= [];
   g.jointocreate.protectedRoleIds ??= [];
+  g.jointocreate.lobbyDisabled ??= false;
+  g.jointocreate.lobbyRestoreAt ??= null;
+  g.jointocreate.lobbyBackup ??= null;
   return g.jointocreate;
 };
+
+/* snapshot just enough of the lobby channel to recreate an equivalent one later —
+   permission overwrite bitfields are BigInt internally, which JSON.stringify can't
+   handle, so they're captured as decimal strings and parsed back on restore */
+function snapshotLobby(channel) {
+  return {
+    name: channel.name,
+    parentId: channel.parentId,
+    bitrate: channel.bitrate,
+    userLimit: channel.userLimit,
+    position: channel.position,
+    permissionOverwrites: [...channel.permissionOverwrites.cache.values()].map(o => ({
+      id: o.id, type: o.type, allow: o.allow.bitfield.toString(), deny: o.deny.bitfield.toString(),
+    })),
+  };
+}
+
+/* recreate the lobby from its saved snapshot and clear the disabled/backup state */
+async function restoreLobby(guild, ctx) {
+  const g = ctx.guild(guild.id);
+  const jc = jcState(g);
+  if (!jc.lobbyDisabled || !jc.lobbyBackup) return;
+  const b = jc.lobbyBackup;
+  const ch = await guild.channels.create({
+    name: b.name,
+    type: ChannelType.GuildVoice,
+    parent: b.parentId ?? null,
+    bitrate: b.bitrate,
+    userLimit: b.userLimit,
+    position: b.position,
+    permissionOverwrites: b.permissionOverwrites.map(o => ({ id: o.id, type: o.type, allow: BigInt(o.allow), deny: BigInt(o.deny) })),
+  }).catch(() => null);
+  jc.lobbyDisabled = false;
+  jc.lobbyRestoreAt = null;
+  jc.lobbyBackup = null;
+  if (ch) jc.lobbyChannelId = ch.id;
+  ctx.save();
+}
+
+/* called once per guild at startup, and right after /temp deletes the lobby — covers both
+   the normal in-process wait and a bot restart happening during that wait */
+function scheduleLobbyRestore(guild, ctx) {
+  const g = ctx.guild(guild.id);
+  const jc = jcState(g);
+  if (!jc.lobbyDisabled || !jc.lobbyRestoreAt) return;
+  const delay = jc.lobbyRestoreAt - Date.now();
+  if (delay <= 0) { restoreLobby(guild, ctx).catch(() => {}); return; }
+  setTimeout(() => restoreLobby(guild, ctx).catch(() => {}), delay);
+}
 
 /* in-memory mirror of temp VCs — rebuilt from persisted state / scan on startup */
 const tempVCs = new Map(); /* vcId -> { ownerId } */
@@ -640,7 +693,7 @@ function registerJoinToCreate(client, ctx) {
       for (const [id, d] of Object.entries(s.temp)) if (!tempVCs.has(id)) tempVCs.set(id, d);
 
       /* ── JOIN: creator hit the lobby channel ── */
-      if (s.enabled && newS.channelId && newS.channelId === s.lobbyChannelId && oldS.channelId !== newS.channelId && !newS.member.user.bot) {
+      if (s.enabled && !s.lobbyDisabled && newS.channelId && newS.channelId === s.lobbyChannelId && oldS.channelId !== newS.channelId && !newS.member.user.bot) {
         const existing = [...tempVCs.entries()].find(([, d]) => d.ownerId === newS.id);
         if (existing) return newS.setChannel(existing[0]).catch(() => {});
         await jcCreateVC(guild, newS.member, s, ctx);
@@ -681,7 +734,10 @@ function registerJoinToCreate(client, ctx) {
   client.on('guildCreate', (g) => reconcile(g, ctx));
   client.once('clientReady', async () => {
     try {
-      for (const g of client.guilds.cache.values()) await reconcile(g, ctx);
+      for (const g of client.guilds.cache.values()) {
+        await reconcile(g, ctx);
+        scheduleLobbyRestore(g, ctx);
+      }
     } catch { /* never crash */ }
   });
 
@@ -749,4 +805,4 @@ commands[commands.findIndex(c => c.ns === 'jtc')].run = async function (i, ctx) 
   });
 };
 
-module.exports = { commands, registerJoinToCreate, jcState };
+module.exports = { commands, registerJoinToCreate, jcState, snapshotLobby, scheduleLobbyRestore };

@@ -184,22 +184,6 @@ client.once(Events.ClientReady, async (readyClient) => {
 
   for (const g of readyClient.guilds.cache.values()) await registerGuild(g);
   updateCounters().catch(() => {});
-
-  /* announce coming online in every guild's configured channel (set via /ping) */
-  for (const data of Object.values(db)) {
-    if (!data.onlineChannelId) continue;
-    const channel = await readyClient.channels.fetch(data.onlineChannelId).catch(() => null);
-    if (!channel) continue;
-    const ping = readyClient.ws.ping;
-    await channel.send({
-      embeds: [new EmbedBuilder()
-        .setTitle('✅ Bot Online')
-        .setDescription(`${readyClient.user} just came online.`)
-        .addFields({ name: '💓 API Latency', value: ping >= 0 ? `${ping}ms` : 'calculating…', inline: true })
-        .setColor(0x57F287)
-        .setTimestamp()],
-    }).catch(() => {});
-  }
 });
 
 client.on(Events.GuildCreate, registerGuild);

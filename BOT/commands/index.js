@@ -24,6 +24,8 @@ const inrole = require('./inrole');
 const ping = require('./ping');
 const uptime = require('./uptime');
 const invite = require('./invite');
+const temp = require('./temp');
+const verify = require('./verify');
 const { command: honeypotCommand, registerHoneypot } = require('./honeypot');
 const { registerDmMessages } = require('./dm-messages');
 
@@ -54,6 +56,8 @@ const commands = [
   ping,
   uptime,
   invite,
+  temp,
+  verify,
   honeypotCommand,
 ];
 

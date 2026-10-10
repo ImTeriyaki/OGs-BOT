@@ -39,7 +39,7 @@ const cmdPages = [
     { n: 'inrole', d: 'List every member that has a role.', u: '/inrole role:@role' },
     { n: 'channelcreate', d: 'Create a channel — type from buttons, name in one field.', u: '/channelcreate' },
     { n: 'rolecreate', d: 'Create a role — name & color, color from a dropdown.', u: '/rolecreate' },
-    { n: 'ping', d: 'Bot latency and API latency — button to announce here when the bot comes online.', u: '/ping' },
+    { n: 'ping', d: 'Bot latency and API latency.', u: '/ping' },
     { n: 'uptime', d: 'How long the bot has been running.', u: '/uptime' },
     { n: 'invite', d: 'Get the bot invite link.', u: '/invite' },
     { n: 'commands', d: 'This command browser.', u: '/commands' },

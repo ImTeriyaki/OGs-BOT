@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, PermissionFlagsBits,
 } = require('discord.js');
-const { colors, row, err, textChannels, voiceChannels, categories, menu, msgState } = require('./_shared');
+const { colors, row, err, textChannels, voiceChannels, categories, rolesMenu, menu, msgState } = require('./_shared');
 const { jcState } = require('./jointocreate');
 const { hpState, hpWarnPayload } = require('./honeypot');
 
@@ -42,8 +42,8 @@ function setupEmbed(i, g) {
       + `👋 **Welcome** — ${w.channelId ? `<#${w.channelId}>` : '*not set*'} (${w.enabled ? 'enabled' : 'disabled'})\n`
       + `🚪 **Goodbye** — ${gb.channelId ? `<#${gb.channelId}>` : '*not set*'} (${gb.enabled ? 'enabled' : 'disabled'})\n`
       + `🍯 **Honeypot** — Trap: ${h.channelIds?.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*not set*'} (${h.enabled ? 'deployed' : 'disabled'}) • Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}\n`
-      + `🔔 **Online Alerts** — ${g.onlineChannelId ? `<#${g.onlineChannelId}>` : '*not set*'}\n`
-      + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}`,
+      + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}\n`
+      + `✅ **Verify** — Role: ${g.verifyRoleId ? `<@&${g.verifyRoleId}>` : '*not set*'} • Log: ${g.verifyLogChannelId ? `<#${g.verifyLogChannelId}>` : '*not set*'}`,
     )
     .setColor(colors.main)
     .setFooter({ text: 'Pick a feature below — you can configure them in any order' });
@@ -63,9 +63,9 @@ function dashboardPanel() {
     row(
       new ButtonBuilder().setCustomId('setup:wlcm').setLabel('👋 Welcome').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:gbye').setLabel('🚪 Goodbye').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setup:verify').setLabel('✅ Verify').setStyle(ButtonStyle.Primary),
     ),
     row(
-      new ButtonBuilder().setCustomId('setup:ping').setLabel('🔔 Online Alerts').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:invite').setLabel('🔗 Invite Link').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:close').setLabel('✖️ Close').setStyle(ButtonStyle.Secondary),
     ),
@@ -115,6 +115,19 @@ function hpotLogStepView() {
     components: [
       pickOrCreatePanel('setup:hpotLogPick', 'setup:hpotLogCreate', '✨ Create #honeypot-logs'),
       row(new ButtonBuilder().setCustomId('setup:hpotLogSkip').setLabel('⏭️ Skip — no log channel').setStyle(ButtonStyle.Secondary)),
+      navRow(),
+    ],
+  };
+}
+
+/* step 2 of verify: the role is already resolved by this point */
+function verifyLogStepView() {
+  return {
+    content: '✅ **Step 2/2** — pick a log channel for verification attempts (optional), have the bot create one, or skip:',
+    embeds: [],
+    components: [
+      pickOrCreatePanel('setup:verifyLogPick', 'setup:verifyLogCreate', '✨ Create #verify-logs'),
+      row(new ButtonBuilder().setCustomId('setup:verifyLogSkip').setLabel('⏭️ Skip — no log channel').setStyle(ButtonStyle.Secondary)),
       navRow(),
     ],
   };
@@ -197,11 +210,11 @@ module.exports = {
       });
     }
 
-    if (action === 'ping') {
+    if (action === 'verify') {
       return i.update({
-        content: '🔔 **Online Alerts** — where should I announce when I come back online?',
+        content: '✅ **Verify** — pick an existing role to grant on verification, or have the bot create one:',
         embeds: [],
-        components: [pickOrCreatePanel('setup:pingPick', 'setup:pingCreate', '✨ Create #bot-status'), navRow()],
+        components: [pickOrCreatePanel('setup:verifyRolePick', 'setup:verifyRoleCreate', '✨ Create @Verified'), navRow()],
       });
     }
     if (action === 'invite') {
@@ -339,18 +352,40 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} and enabled welcome messages there.` });
     }
-    if (action === 'pingPick') {
+    if (action === 'verifyRolePick') {
+      const opts = rolesMenu(i);
+      if (!opts.length) return err(i, 'No roles found.');
+      const sel = menu('setup:verifyRoleSel', '✅ Pick the verified role…', opts);
+      return i.update({ content: '✅ Pick the role members get on verification:', embeds: [], components: [row(sel), navRow()] });
+    }
+    if (action === 'verifyRoleCreate') {
+      const newRole = await i.guild.roles.create({ name: 'Verified', color: 0x57F287 }).catch(() => null);
+      if (!newRole) return err(i, "Couldn't create the role — check my permissions.");
+      g.verifyRoleId = newRole.id;
+      ctx.save();
+      const next = verifyLogStepView();
+      return i.update({ ...next, content: `✅ Created ${newRole} — it's now granted on verification.\n\n${next.content}` });
+    }
+    if (action === 'verifyLogPick') {
       const chans = textChannels(i, 25);
       if (!chans.length) return err(i, 'No text channels found.');
-      const sel = menu('setup:pingSel', '🔔 Pick the online-alerts channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🔔' })));
-      return i.update({ content: '🔔 Pick the channel for online announcements:', components: [row(sel), navRow()] });
+      const sel = menu('setup:verifyLogSel', '📜 Pick the verify log channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '📜' })));
+      return i.update({ content: '📜 Pick the channel for verification-attempt logs:', components: [row(sel), navRow()] });
     }
-    if (action === 'pingCreate') {
-      const ch = await i.guild.channels.create({ name: 'bot-status', type: ChannelType.GuildText }).catch(() => null);
+    if (action === 'verifyLogCreate') {
+      const ch = await i.guild.channels.create({
+        name: 'verify-logs', type: ChannelType.GuildText,
+        permissionOverwrites: [{ id: i.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
+      }).catch(() => null);
       if (!ch) return err(i, "Couldn't create the channel — check my permissions.");
-      g.onlineChannelId = ch.id;
+      g.verifyLogChannelId = ch.id;
       ctx.save();
-      return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} — I'll announce here when I come online.` });
+      return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} (hidden from @everyone) for verification logs.` });
+    }
+    if (action === 'verifyLogSkip') {
+      g.verifyLogChannelId = null;
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: '✅ Verify is set up — no log channel.' });
     }
     if (action === 'gbyeChCreate') {
       const catId = parts[2];
@@ -417,10 +452,16 @@ module.exports = {
       const next = gbyeChannelStepView(catId);
       return i.update({ ...next, content: `✅ Goodbye channel will be created in \`${cat?.name ?? 'that category'}\` if you create one.\n\n${next.content}` });
     }
-    if (i.customId === 'setup:pingSel') {
-      g.onlineChannelId = i.values[0];
+    if (i.customId === 'setup:verifyRoleSel') {
+      g.verifyRoleId = i.values[0];
       ctx.save();
-      return i.update({ ...dashboardView(i, g), content: `✅ I'll announce online status in <#${g.onlineChannelId}>.` });
+      const next = verifyLogStepView();
+      return i.update({ ...next, content: `✅ <@&${g.verifyRoleId}> will be granted on verification.\n\n${next.content}` });
+    }
+    if (i.customId === 'setup:verifyLogSel') {
+      g.verifyLogChannelId = i.values[0];
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Verification attempts will log in <#${g.verifyLogChannelId}>.` });
     }
     if (i.customId.startsWith('setup:gbyeChSel:')) {
       msgState(g, 'goodbye');
