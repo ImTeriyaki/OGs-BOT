@@ -54,7 +54,8 @@ function registerMedalForward(client, ctx) {
       const g = ctx.guild(msg.guildId);
       const destId = g.medalForwardChannelId;
       if (!destId || destId === msg.channelId) return;
-      if (!MEDAL_RE.test(msg.content ?? '')) return;
+      const links = msg.content?.match(new RegExp(MEDAL_RE, 'gi')) ?? [];
+      if (!links.length) return;
 
       if (seen.has(msg.id)) return;
       seen.add(msg.id);
@@ -65,10 +66,9 @@ function registerMedalForward(client, ctx) {
       const mePerms = msg.guild.members.me?.permissionsIn(dest);
       if (!mePerms?.has(PermissionFlagsBits.SendMessages)) return;
 
-      await dest.send({
-        content: `🎬 <@${msg.author.id}> shared a Medal clip`,
-        forward: { message: msg.id, channel: msg.channelId, guild: msg.guildId },
-      }).catch(() => {});
+      /* plain-text copy — Discord's own link unfurling handles the preview, and this
+         sidesteps any edge cases with the native "forward" message-reference type */
+      await dest.send(`🎬 <@${msg.author.id}> shared a Medal clip:\n${links.join('\n')}`).catch(() => {});
     } catch { /* never crash the bot over auto-forward */ }
   });
 }
