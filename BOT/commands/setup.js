@@ -43,7 +43,8 @@ function setupEmbed(i, g) {
       + `🚪 **Goodbye** — ${gb.channelId ? `<#${gb.channelId}>` : '*not set*'} (${gb.enabled ? 'enabled' : 'disabled'})\n`
       + `🍯 **Honeypot** — Trap: ${h.channelIds?.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*not set*'} (${h.enabled ? 'deployed' : 'disabled'}) • Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}\n`
       + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}\n`
-      + `✅ **Verify** — Role: ${g.verifyRoleId ? `<@&${g.verifyRoleId}>` : '*not set*'} • Log: ${g.verifyLogChannelId ? `<#${g.verifyLogChannelId}>` : '*not set*'}`,
+      + `✅ **Verify** — Role: ${g.verifyRoleId ? `<@&${g.verifyRoleId}>` : '*not set*'} • Log: ${g.verifyLogChannelId ? `<#${g.verifyLogChannelId}>` : '*not set*'}\n`
+      + `🎬 **Medal Clips** — ${g.medalForwardChannelId ? `<#${g.medalForwardChannelId}>` : '*not set*'}`,
     )
     .setColor(colors.main)
     .setFooter({ text: 'Pick a feature below — you can configure them in any order' });
@@ -67,6 +68,7 @@ function dashboardPanel() {
     ),
     row(
       new ButtonBuilder().setCustomId('setup:invite').setLabel('🔗 Invite Link').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setup:medal').setLabel('🎬 Medal Clips').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:close').setLabel('✖️ Close').setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -224,6 +226,13 @@ module.exports = {
         .setPlaceholder('https://discord.gg/yourcode').setRequired(true)));
       return i.showModal(modal);
     }
+    if (action === 'medal') {
+      return i.update({
+        content: '🎬 **Medal Clips** — pick an existing channel for medal.tv links, or have the bot create one:',
+        embeds: [],
+        components: [pickOrCreatePanel('setup:medalPick', 'setup:medalCreate', '✨ Create #medal-clips'), navRow()],
+      });
+    }
     /* ── "pick existing" buttons open a channel select ── */
     if (action === 'jtcLobbyPick') {
       const chans = voiceChannels(i, 25);
@@ -298,6 +307,12 @@ module.exports = {
       if (!chans.length) return err(i, 'No text channels found.');
       const sel = menu(`setup:gbyeChSel:${catId}`, '🚪 Pick the goodbye channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🚪' })));
       return i.update({ content: '🚪 Pick the goodbye channel:', components: [row(sel), navRow()] });
+    }
+    if (action === 'medalPick') {
+      const chans = textChannels(i, 25);
+      if (!chans.length) return err(i, 'No text channels found.');
+      const sel = menu('setup:medalSel', '🎬 Pick the Medal clips channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🎬' })));
+      return i.update({ content: '🎬 Pick the channel medal.tv links get forwarded to:', components: [row(sel), navRow()] });
     }
 
     /* ── "create for me" buttons act immediately, no picker needed — then back to the dashboard ── */
@@ -399,6 +414,13 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} and enabled goodbye messages there.` });
     }
+    if (action === 'medalCreate') {
+      const ch = await i.guild.channels.create({ name: 'medal-clips', type: ChannelType.GuildText }).catch(() => null);
+      if (!ch) return err(i, "Couldn't create the channel — check my permissions.");
+      g.medalForwardChannelId = ch.id;
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} — medal.tv links from any channel will be forwarded there.` });
+    }
   },
 
   async onSelect(i, ctx) {
@@ -469,6 +491,11 @@ module.exports = {
       g.goodbye.enabled = true;
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Goodbye messages will post in <#${g.goodbye.channelId}>.` });
+    }
+    if (i.customId === 'setup:medalSel') {
+      g.medalForwardChannelId = i.values[0];
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Medal.tv links from any channel will be forwarded to <#${g.medalForwardChannelId}>.` });
     }
   },
 

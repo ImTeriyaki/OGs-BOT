@@ -6,7 +6,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const {
-  commands, registerJoinToCreate, registerHoneypot, registerDmMessages,
+  commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward,
 } = require('./commands/index.js');
 const { msgDefaults } = require('./commands/_shared');
 const { runCleanup } = require('./cleanup');
@@ -34,7 +34,7 @@ function defaultGuild() {
   return {
     welcome: msgDefaults('welcome'), goodbye: msgDefaults('goodbye'), tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {}, autoroles: [], selfroles: [],
-    logsChannelId: null, modLogChannelId: null, counterIds: null,
+    logsChannelId: null, modLogChannelId: null, medalForwardChannelId: null, counterIds: null,
     ownerId: null, adminRoleId: null,
   };
 }
@@ -319,6 +319,9 @@ registerDmMessages(client, ctx);
 
 /* join-to-create engine lives in commands.js — creates tracked temporary VCs */
 registerJoinToCreate(client, ctx);
+
+/* medal.tv auto-forward engine — forwards any medal.tv link from any channel to the admin-set channel */
+registerMedalForward(client, ctx);
 
 /* ═══════════════ LIVE MEMBER COUNT CHANNELS ═══════════════ */
 async function updateCounters() {

@@ -27,6 +27,7 @@ const invite = require('./invite');
 const temp = require('./temp');
 const verify = require('./verify');
 const { command: honeypotCommand, registerHoneypot } = require('./honeypot');
+const { command: medalforwardCommand, registerMedalForward } = require('./medalforward');
 const { registerDmMessages } = require('./dm-messages');
 
 const commands = [
@@ -59,6 +60,7 @@ const commands = [
   temp,
   verify,
   honeypotCommand,
+  medalforwardCommand,
 ];
 
-module.exports = { commands, registerJoinToCreate, registerHoneypot, registerDmMessages };
+module.exports = { commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward };
