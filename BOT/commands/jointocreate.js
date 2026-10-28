@@ -135,6 +135,18 @@ function revokeOwner(vc, ownerId) {
   vc.permissionOverwrites.delete(ownerId).catch(() => {});
 }
 
+/* default setting: whatever role is configured as the server's "verified" role (via
+   /verify or /setup) can always see + join a newly-created temp VC. No-op if no
+   verified role is configured. Re-applied by /vc's "Reset" and /vcadmin's "Reset All"
+   so the default survives those too — it's not just a one-time creation perk. */
+function applyVerifiedRoleAccess(vc, ctx) {
+  const g = ctx.guild(vc.guild.id);
+  if (!g.verifyRoleId) return;
+  const role = vc.guild.roles.cache.get(g.verifyRoleId);
+  if (!role) return;
+  vc.permissionOverwrites.edit(role.id, { ViewChannel: true, Connect: true }).catch(() => {});
+}
+
 /* ── create a temp VC (with its own built-in text chat) and move the creator in ── */
 async function jcCreateVC(guild, member, state, ctx) {
   const cat = guild.channels.cache.get(state.categoryId) ?? null;
@@ -156,6 +168,7 @@ async function jcCreateVC(guild, member, state, ctx) {
   ctx.save();
 
   ownerOverwrites(vc, member.id);
+  applyVerifiedRoleAccess(vc, ctx);
   await member.voice.setChannel(vc).catch(async () => {
     /* couldn't move them (they left instantly) — tear down to avoid orphans */
     await jcDeleteVC(guild, vc.id, ctx).catch(() => {});
@@ -205,7 +218,7 @@ commands.push({
     const g = ctx.guild(i.guildId);
     const s = jcState(g);
     ctx.save();
-    return i.reply({ embeds: [jcSetupEmbed(i, s)], components: jcSetupPanel(s), ephemeral: true });
+    return i.reply({ embeds: [jcSetupEmbed(i, g, s)], components: jcSetupPanel(s), ephemeral: true });
   },
 
   async onButton(i, ctx) {
@@ -218,12 +231,12 @@ commands.push({
       if (!s.lobbyChannelId) return err(i, 'Pick a **lobby channel** first.');
       s.enabled = !s.enabled;
       ctx.save();
-      return i.update({ embeds: [jcSetupEmbed(i, s)], components: jcSetupPanel(s) });
+      return i.update({ embeds: [jcSetupEmbed(i, g, s)], components: jcSetupPanel(s) });
     }
     if (action === 'reset') {
       g.jointocreate = JC_DEFAULTS();
       ctx.save();
-      return i.update({ embeds: [jcSetupEmbed(i, jcState(g))], components: jcSetupPanel(jcState(g)) });
+      return i.update({ embeds: [jcSetupEmbed(i, g, jcState(g))], components: jcSetupPanel(jcState(g)) });
     }
   },
 
@@ -246,9 +259,10 @@ commands.push({
   },
 });
 
-function jcSetupEmbed(i, s) {
+function jcSetupEmbed(i, g, s) {
   const lobby = s.lobbyChannelId ? `<#${s.lobbyChannelId}>` : '*not set*';
   const cat = s.categoryId ? (i.guild.channels.cache.get(s.categoryId)?.name ? `\`${i.guild.channels.cache.get(s.categoryId).name}\`` : '`deleted`') : '*not set*';
+  const verifiedRole = g.verifyRoleId ? i.guild.roles.cache.get(g.verifyRoleId) : null;
   return new EmbedBuilder()
     .setTitle('🎙️ Join-to-Create')
     .setDescription(
@@ -256,7 +270,8 @@ function jcSetupEmbed(i, s) {
       + 'with owner permissions scoped to that VC only — and it auto-deletes when empty.\n\n'
       + `**Status:** ${s.enabled ? '🟢 Enabled' : '🔴 Disabled'}\n`
       + `**Lobby Channel:** ${lobby}\n`
-      + `**Category for temp VCs:** ${cat}\n\n`
+      + `**Category for temp VCs:** ${cat}\n`
+      + `**Default role access:** ${verifiedRole ? `${verifiedRole} can always see + join new temp VCs` : '*no verified role configured — see /verify or /setup*'}\n\n`
       + 'Owners manage their VC with **/vc** — rename, limit, mute, deafen, disconnect,\n'
       + 'whitelist/blacklist users, transfer, reset and delete. All permissions are per-channel only.',
     )
@@ -348,7 +363,8 @@ commands.push({
         if (id !== vc.guild.members.me.id && id !== data.ownerId) await vc.permissionOverwrites.delete(id).catch(() => {});
       }
       ownerOverwrites(vc, data.ownerId);
-      return i.reply({ content: '♻️ VC reset — name, limit and whitelist/blacklist cleared.', ephemeral: true });
+      applyVerifiedRoleAccess(vc, ctx);
+      return i.reply({ content: '♻️ VC reset — name, limit and whitelist/blacklist cleared (verified role access kept).', ephemeral: true });
     }
 
     if (action === 'delete') {
@@ -484,11 +500,13 @@ commands.push({
 function vcEmbed(i, vc, data) {
   const allows = vc.permissionOverwrites.cache.filter(o => o.type === 1 && o.id !== data.ownerId && o.allow.has(PermissionFlagsBits.Connect)).map(o => `<@${o.id}>`);
   const denies = vc.permissionOverwrites.cache.filter(o => o.type === 1 && o.id !== data.ownerId && o.deny.has(PermissionFlagsBits.Connect)).map(o => `<@${o.id}>`);
+  const roleAccess = vc.permissionOverwrites.cache.filter(o => o.type === 0 && o.id !== vc.guild.id && o.allow.has(PermissionFlagsBits.Connect)).map(o => `<@&${o.id}>`);
   return new EmbedBuilder()
     .setTitle(`Your VC — ${vc.name}`)
     .setDescription(
       `👑 **Owner:** <@${data.ownerId}>\n`
       + `**Limit:** ${vc.userLimit || 'unlimited'}\n**Members here:** ${vc.members.size}\n\n`
+      + `**Default role access:** ${roleAccess.length ? roleAccess.join(', ') : '*none configured — see /verify or /setup*'}\n`
       + `**Whitelisted users:** ${allows.length ? allows.join(', ') : '*none*'}\n`
       + `**Blacklisted users:** ${denies.length ? denies.join(', ') : '*none*'}\n\n`
       + '*All actions affect **only this VC** — you cannot touch other channels, roles or members.*',
@@ -526,7 +544,7 @@ function vcPanel(vc, data) {
 
 /* ═══════════════════════════ /vcadmin — admin oversight of any temp VC ═══════════════════════════ */
 
-function vcAdminEmbed(guild) {
+function vcAdminEmbed(guild, g) {
   const active = [];
   for (const [id, data] of tempVCs) {
     const vc = guild.channels.cache.get(id);
@@ -534,8 +552,12 @@ function vcAdminEmbed(guild) {
     const members = vc.members.map(member => `• ${member.user.username}`).join('\n');
     active.push(`**${vc.name}** — Owner: <@${data.ownerId}>\n${members}`);
   }
+  const verifiedRole = g?.verifyRoleId ? guild.roles.cache.get(g.verifyRoleId) : null;
   return new EmbedBuilder().setTitle('🛡️ VC Admin Dashboard')
-    .setDescription(active.join('\n\n').slice(0, 3900) || '*No active temporary VCs.*')
+    .setDescription(
+      `**Default role access on new temp VCs:** ${verifiedRole ? `${verifiedRole}` : '*no verified role configured — see /verify or /setup*'}\n\n`
+      + (active.join('\n\n').slice(0, 3800) || '*No active temporary VCs.*'),
+    )
     .setColor(colors.main);
 }
 
@@ -545,7 +567,7 @@ commands.push({
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   ns: 'vcadmin',
 
-  async run(i) {
+  async run(i, ctx) {
     if (!i.member.permissions.has(PermissionFlagsBits.Administrator)) return err(i, 'Administrator permission required.');
     const choices = [...tempVCs.entries()].map(([id, data]) => {
       const vc = i.guild.channels.cache.get(id);
@@ -554,7 +576,7 @@ commands.push({
     const selector = new StringSelectMenuBuilder().setCustomId('vcadmin:pick').setPlaceholder('🔊 Select a temporary VC to manage…')
       .addOptions(choices.length ? choices : [{ label: 'No temporary VCs available', value: 'none', emoji: '⚠️' }]);
     return i.reply({
-      embeds: [vcAdminEmbed(i.guild)],
+      embeds: [vcAdminEmbed(i.guild, ctx.guild(i.guildId))],
       components: [row(selector), row(
         new ButtonBuilder().setCustomId('vcadmin:active').setLabel('🔄 Refresh Active').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('vcadmin:protectedUsers').setLabel('🛡️ Protected Users').setStyle(ButtonStyle.Secondary),
@@ -604,7 +626,7 @@ commands.push({
   async onButton(i, ctx) {
     if (!i.member.permissions.has(PermissionFlagsBits.Administrator)) return err(i, 'Administrator permission required.');
     if (i.customId === 'vcadmin:close') return i.update({ content: '🛡️ Admin dashboard closed.', embeds: [], components: [] });
-    if (i.customId === 'vcadmin:active') return i.update({ embeds: [vcAdminEmbed(i.guild)] });
+    if (i.customId === 'vcadmin:active') return i.update({ embeds: [vcAdminEmbed(i.guild, ctx.guild(i.guildId))] });
 
     if (i.customId === 'vcadmin:resetAll') {
       const state = jcState(ctx.guild(i.guildId));
@@ -619,10 +641,11 @@ commands.push({
             await vc.permissionOverwrites.delete(memberId).catch(() => {});
           }
         }
+        applyVerifiedRoleAccess(vc, ctx);
         vcCount++;
       }
       ctx.save();
-      return i.update({ content: `♻️ Reset complete — cleared protected users/roles and whitelist/blacklist entries across ${vcCount} active temp VC(s).`, embeds: [], components: [] });
+      return i.update({ content: `♻️ Reset complete — cleared protected users/roles and whitelist/blacklist entries across ${vcCount} active temp VC(s) (verified role access kept).`, embeds: [], components: [] });
     }
 
     if (i.customId === 'vcadmin:protectedUsers') {
@@ -799,7 +822,7 @@ commands[commands.findIndex(c => c.ns === 'jtc')].run = async function (i, ctx) 
   const catSel = new StringSelectMenuBuilder().setCustomId('jtc:catSel').setPlaceholder('📁 Pick the category for temp VCs…')
     .addOptions(cats.map(c => ({ label: c.name.slice(0, 100), value: c.id, emoji: '📁', default: c.id === s.categoryId })));
   return i.reply({
-    embeds: [jcSetupEmbed(i, s)],
+    embeds: [jcSetupEmbed(i, g, s)],
     components: [...(lobbies.length && cats.length ? [row(lobbySel), row(catSel)] : []), ...jcSetupPanel(s)],
     ephemeral: true,
   });
