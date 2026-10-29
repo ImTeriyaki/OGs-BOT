@@ -8,7 +8,7 @@ const path = require('path');
 const {
   commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward,
 } = require('./commands/index.js');
-const { msgDefaults } = require('./commands/_shared');
+const { msgDefaults, BOT_VERSION } = require('./commands/_shared');
 const { runCleanup } = require('./cleanup');
 
 
@@ -191,7 +191,7 @@ const registerGuild = async (g) => {
 };
 
 client.once(Events.ClientReady, async (readyClient) => {
-  console.log(`✅ Logged in as ${readyClient.user.tag} — ${commands.length} commands`);
+  console.log(`✅ Logged in as ${readyClient.user.tag} ${BOT_VERSION} — ${commands.length} commands`);
 
   /* ONE-TIME global wipe — removes old duplicate global commands.
      Comment this block out after it has run once and ~1 hour has passed. */

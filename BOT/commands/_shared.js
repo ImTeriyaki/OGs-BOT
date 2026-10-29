@@ -5,6 +5,10 @@ const { ActionRowBuilder, ChannelType, StringSelectMenuBuilder, EmbedBuilder } =
 /* ═══════════════════════════ shared ═══════════════════════════ */
 const colors = { main: 0x5865F2, good: 0x57F287, bad: 0xED4245, warn: 0xFEE75C };
 
+/* single source of truth for the bot's version — package.json. Bump it (semver:
+   MAJOR.MINOR.PATCH) whenever a feature or fix ships; shown in /botinfo and on startup. */
+const BOT_VERSION = `v${require('../../package.json').version}`;
+
 const row = (...components) => new ActionRowBuilder().addComponents(...components);
 
 const err = (i, msg) => {
@@ -174,7 +178,7 @@ function msgChannelRow(ns, i, s) {
 }
 
 module.exports = {
-  colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration,
+  colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration, BOT_VERSION,
   WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
   logAdmin, readAdminLog, ADMIN_LOG_PATH, recordAdminAction,
 };

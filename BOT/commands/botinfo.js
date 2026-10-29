@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, ActivityType,
 } = require('discord.js');
-const { colors, row, err, menu, formatDuration } = require('./_shared');
+const { colors, row, err, menu, formatDuration, BOT_VERSION } = require('./_shared');
 
 /* bot presence/activity is global — set here, it changes what every server sees,
    not just the one this command was run in. Not persisted: resets on restart. */
@@ -46,6 +46,7 @@ module.exports = {
       .setThumbnail(i.client.user.displayAvatarURL({ size: 512 }))
       .setColor(colors.main)
       .addFields(
+        { name: '🏷️ Version', value: BOT_VERSION, inline: true },
         { name: '📡 Ping', value: `${Math.round(i.client.ws.ping)}ms`, inline: true },
         { name: '⏱️ Uptime', value: formatDuration(i.client.uptime), inline: true },
         { name: '🏢 Servers', value: `${i.client.guilds.cache.size}`, inline: true },
