@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 OGs Expanded Bot
 
 A dedicated Discord bot built exclusively for OGs Expanded.
@@ -38,3 +39,7 @@ Disclaimer
 OGs Expanded Bot is an independent Discord application and is not affiliated with, endorsed by, or sponsored by Discord Inc.
 
 © 2026 OGs Expanded Bot. All rights reserved.
+=======
+# OGs-BOT
+Discord Bot for The Originals
+>>>>>>> 14e639c292da2dc0942a2e4bd3fa797dc83dee25
