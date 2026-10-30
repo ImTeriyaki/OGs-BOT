@@ -8,8 +8,6 @@ const cmdPages = [
     { n: 'goodbye', d: 'Goodbye message builder — templates, colors & channel, all buttons.', u: '/goodbye' },
     { n: 'announce', d: 'Visual announcement builder — pick channel, ping, color & style, then send.', u: '/announce' },
     { n: 'jointocreate', d: 'Join-to-Create voice lobbies — pick lobby & category from dropdowns.', u: '/jointocreate' },
-    { n: 'autorole', d: 'Roles automatically given when members join. Multi-select dropdown panel.', u: '/autorole' },
-    { n: 'selfroles', d: 'Roles members can pick for themselves from a dropdown menu.', u: '/selfroles' },
     { n: 'ticket', d: 'Post a support ticket panel — pick channels from dropdowns.', u: '/ticket' },
     { n: 'logs', d: 'Set the error log channel from a dropdown.', u: '/logs' },
     { n: 'honeypot', d: 'Anti-raid trap channels — deploy, punishment, message, whitelist — all from one panel of buttons.', u: '/honeypot' },
@@ -27,7 +25,6 @@ const cmdPages = [
   ]},
   { name: 'Info', emoji: '📊', commands: [
     { n: 'serverinfo', d: 'Detailed server information card — owner, members, online, created date, channels, roles, boosts. Refresh & invite-link buttons.', u: '/serverinfo' },
-    { n: 'channelinfo', d: 'Channel details with quick-action buttons.', u: '/channelinfo [channel:#chan]' },
     { n: 'membercount', d: 'Live humans/bots/online breakdown with bar chart & setup.', u: '/membercount' },
     { n: 'botinfo', d: 'Statistics about this bot.', u: '/botinfo' },
     { n: 'snipe', d: 'Show the last deleted message in this channel.', u: '/snipe' },

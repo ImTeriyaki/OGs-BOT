@@ -22,6 +22,10 @@ const menu = (id, placeholder, options, extra = {}) =>
 const textChannels = (i, limit = 25) =>
   i.guild.channels.cache.filter(c => c.type === ChannelType.GuildText).first(limit);
 
+/* text + announcement channels — for pickers where posting to an announcement channel makes sense */
+const announceCapableChannels = (i, limit = 25) =>
+  i.guild.channels.cache.filter(c => c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement).first(limit);
+
 const voiceChannels = (i, limit = 25) =>
   i.guild.channels.cache.filter(c => c.type === ChannelType.GuildVoice).first(limit);
 
@@ -178,7 +182,7 @@ function msgChannelRow(ns, i, s) {
 }
 
 module.exports = {
-  colors, row, err, menu, textChannels, voiceChannels, categories, rolesMenu, formatDuration, BOT_VERSION,
+  colors, row, err, menu, textChannels, announceCapableChannels, voiceChannels, categories, rolesMenu, formatDuration, BOT_VERSION,
   WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
   logAdmin, readAdminLog, ADMIN_LOG_PATH, recordAdminAction,
 };

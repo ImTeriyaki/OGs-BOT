@@ -6,7 +6,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const {
-  commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward,
+  commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward, registerRustWipeWatcher,
 } = require('./commands/index.js');
 const { msgDefaults, BOT_VERSION } = require('./commands/_shared');
 const { runCleanup } = require('./cleanup');
@@ -33,9 +33,9 @@ let db = loadDb();
 function defaultGuild() {
   return {
     welcome: msgDefaults('welcome'), goodbye: msgDefaults('goodbye'), tickets: {}, jtc: null, jointocreate: null,
-    warns: {}, afk: {}, autoroles: [], selfroles: [],
+    warns: {}, afk: {},
     logsChannelId: null, modLogChannelId: null, medalForwardChannelId: null, counterIds: null,
-    ownerId: null, adminRoleId: null,
+    ownerId: null, adminRoleId: null, rust: { mainServerId: null, notifyChannelId: null, lastWipeSeen: null },
   };
 }
 
@@ -211,14 +211,9 @@ client.on(Events.GuildCreate, registerGuild);
 
 /* ═══════════════ EVENTS ═══════════════ */
 
-/* member join: autorole + welcome + counters */
+/* member join: welcome + counters */
 client.on(Events.GuildMemberAdd, async (member) => {
   const g = store.guild(member.guild.id);
-
-  for (const roleId of g.autoroles) {
-    const role = member.guild.roles.cache.get(roleId);
-    if (role && role.editable) await member.roles.add(role).catch(() => {});
-  }
 
   const w = g.welcome;
   if (w?.enabled && w.channelId) {
@@ -323,6 +318,10 @@ registerJoinToCreate(client, ctx);
 /* medal.tv auto-forward engine — forwards any medal.tv link from any channel to the admin-set channel */
 registerMedalForward(client, ctx);
 
+/* Rust wipe watcher — polls each guild's main BattleMetrics server and announces in the
+   admin-set channel the moment a new wipe is detected */
+registerRustWipeWatcher(client, ctx);
+
 /* ═══════════════ LIVE MEMBER COUNT CHANNELS ═══════════════ */
 async function updateCounters() {
   for (const [guildId, data] of Object.entries(db)) {
@@ -366,6 +365,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const cmd = commands.find(c => c.data.name === interaction.commandName);
       if (!cmd) return;
       return await cmd.run(interaction, ctx);
+    }
+
+    /* autocomplete — no customId, so it must be handled before the namespace router below */
+    if (interaction.isAutocomplete()) {
+      const cmd = commands.find(c => c.data.name === interaction.commandName);
+      if (cmd?.autocomplete) return await cmd.autocomplete(interaction, ctx).catch(() => {});
+      return;
     }
 
     /* standalone "copy error code" button on error replies — not owned by any command */

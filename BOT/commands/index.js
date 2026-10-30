@@ -4,8 +4,6 @@ const welcome = require('./welcome');
 const goodbye = require('./goodbye');
 const announce = require('./announce');
 const { commands: jtcCommands, registerJoinToCreate } = require('./jointocreate');
-const autorole = require('./autorole');
-const selfroles = require('./selfroles');
 const ticket = require('./ticket');
 const logs = require('./logs');
 const embed = require('./embed');
@@ -15,7 +13,6 @@ const lock = require('./lock');
 const unlock = require('./unlock');
 const user = require('./user');
 const serverinfo = require('./serverinfo');
-const channelinfo = require('./channelinfo');
 const membercount = require('./membercount');
 const botinfo = require('./botinfo');
 const say = require('./say');
@@ -26,6 +23,8 @@ const uptime = require('./uptime');
 const invite = require('./invite');
 const temp = require('./temp');
 const verify = require('./verify');
+const rust = require('./rust');
+const { registerRustWipeWatcher } = rust;
 const { command: honeypotCommand, registerHoneypot } = require('./honeypot');
 const { command: medalforwardCommand, registerMedalForward } = require('./medalforward');
 const { registerDmMessages } = require('./dm-messages');
@@ -37,8 +36,6 @@ const commands = [
   goodbye,
   announce,
   ...jtcCommands,
-  autorole,
-  selfroles,
   ticket,
   logs,
   embed,
@@ -48,7 +45,6 @@ const commands = [
   unlock,
   user,
   serverinfo,
-  channelinfo,
   membercount,
   botinfo,
   say,
@@ -59,8 +55,9 @@ const commands = [
   invite,
   temp,
   verify,
+  rust,
   honeypotCommand,
   medalforwardCommand,
 ];
 
-module.exports = { commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward };
+module.exports = { commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward, registerRustWipeWatcher };

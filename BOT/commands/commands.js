@@ -15,8 +15,6 @@ const CATEGORIES = [
       ['/goodbye', 'Set up goodbye messages with templates, colors, and a channel', 'Same builder as /welcome, but for members leaving the server.'],
       ['/announce', 'Build a polished announcement with channel, ping, color, style, and preview', 'Full visual editor: live preview, custom hex colors, ping options, styles, templates, banners and thumbnails.'],
       ['/jointocreate', 'Creates a join-to-create voice lobby system', 'Members join a lobby channel and get their own temporary voice channel automatically.'],
-      ['/autorole', 'Auto-assign roles when members join', 'Give new members one or more roles the moment they join.'],
-      ['/selfroles', 'Let members choose roles for themselves', 'Publish a panel where members can pick their own roles.'],
       ['/ticket', 'Create a support ticket panel', 'Deploy a button panel that opens private staff-visible ticket channels.'],
       ['/logs', 'Set the bot’s log channel', 'Choose where moderation and server events get logged.'],
       ['/honeypot', 'Set up anti-raid trap channels', 'Invisible trap channels that auto-ban raid bots which join or type in them.'],
@@ -43,7 +41,6 @@ const CATEGORIES = [
     blurb: 'Server, channel and member statistics',
     commands: [
       ['/serverinfo', 'Server stats and details', 'Ownership, creation date, boosts, roles, channels and more.'],
-      ['/channelinfo', 'Information about a specific channel', 'Type, topic, position, permissions and slowmode for any channel.'],
       ['/membercount', 'Live member breakdown (humans, bots, online)', 'Humans vs bots, online status split, and join trends.'],
       ['/botinfo', 'Bot stats like ping, uptime, and server count', 'WebSocket and API latency, memory usage, uptime and shard info.'],
     ],
@@ -60,6 +57,7 @@ const CATEGORIES = [
       ['/ping', 'Full connection diagnostics (admin only)', 'Roundtrip, WebSocket heartbeat, REST latency, uptime, memory, and version info.'],
       ['/uptime', 'Show how long the bot has been online', 'Precise uptime with a human-readable breakdown.'],
       ['/invite', 'Get the bot invite link', 'Button link with the correct permissions pre-selected.'],
+      ['/rust', 'Rust server wipe countdown & player count', 'Search any Rust server (BattleMetrics) or check this server’s main tracked server — live players, last wipe, and estimated next/force wipe. Set up automatic wipe-detected alerts via /setup.'],
     ],
   },
   {

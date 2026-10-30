@@ -2,9 +2,10 @@ const {
   SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, PermissionFlagsBits,
 } = require('discord.js');
-const { colors, row, err, textChannels, voiceChannels, categories, rolesMenu, menu, msgState } = require('./_shared');
+const { colors, row, err, textChannels, announceCapableChannels, voiceChannels, categories, rolesMenu, menu, msgState } = require('./_shared');
 const { jcState } = require('./jointocreate');
 const { hpState, hpWarnPayload } = require('./honeypot');
+const { rustState } = require('./rust');
 
 /* ═══════════════════════════ /setup — quick-start wizard ═══════════════════════════
    For each channel-dependent auto-feature: pick an existing channel, or have the bot
@@ -21,6 +22,15 @@ function serverOverview(i) {
   return `**${i.guild.name}** — ${i.guild.memberCount} members • ${text} text • ${voice} voice • ${cats} categories`;
 }
 
+const NOT_SET = '⚠️ *Not set*';
+const BLANK = { name: '​', value: '​', inline: false };
+
+/* paired inline fields render as a clean 2-column grid; a blank non-inline field
+   after each pair forces a row break (Discord would otherwise fit 3 per row) */
+function field(name, lines) {
+  return { name, value: Array.isArray(lines) ? lines.join('\n') : lines, inline: true };
+}
+
 /* read-only status — deliberately does NOT call jcState/hpState/msgDefaults, since those
    normalize-and-write full defaults (including honeypot's default title/description).
    Calling them just to render the dashboard would silently create/persist settings for
@@ -30,22 +40,45 @@ function setupEmbed(i, g) {
   const w = g.welcome ?? {};
   const gb = g.goodbye ?? {};
   const h = g.honeypot ?? {};
+  const r = g.rust ?? {};
   const cat = jc.categoryId ? i.guild.channels.cache.get(jc.categoryId) : null;
+
+  const fields = [
+    field('🎙️ Join-to-Create', [
+      jc.lobbyChannelId ? `Lobby: <#${jc.lobbyChannelId}>` : NOT_SET,
+      `Category: ${cat ? `\`${cat.name}\`` : '*none*'}`,
+    ]),
+    field('🍯 Honeypot', h.channelIds?.length ? [
+      `Trap: ${h.channelIds.map(c => `<#${c}>`).join(', ')} ${h.enabled ? '🟢' : '🔴'}`,
+      `Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*none*'}`,
+    ] : NOT_SET),
+    BLANK,
+    field('📜 Logs', g.logsChannelId ? `<#${g.logsChannelId}>` : NOT_SET),
+    field('👋 Welcome', w.channelId ? [`<#${w.channelId}>`, w.enabled ? '🟢 Enabled' : '🔴 Disabled'] : NOT_SET),
+    BLANK,
+    field('🚪 Goodbye', gb.channelId ? [`<#${gb.channelId}>`, gb.enabled ? '🟢 Enabled' : '🔴 Disabled'] : NOT_SET),
+    field('✅ Verify', g.verifyRoleId ? [
+      `Role: <@&${g.verifyRoleId}>`,
+      `Log: ${g.verifyLogChannelId ? `<#${g.verifyLogChannelId}>` : '*none*'}`,
+    ] : NOT_SET),
+    BLANK,
+    field('🔗 Invite Link', g.inviteLink ? g.inviteLink : NOT_SET),
+    field('🎬 Medal Clips', g.medalForwardChannelId ? `<#${g.medalForwardChannelId}>` : NOT_SET),
+    BLANK,
+    field('🔧 Rust Wipe Alerts', [
+      `Main Server: ${r.mainServerId ? `\`${r.mainServerId}\` ✅` : '⚠️ *Not set — use /rust*'}`,
+      `Alerts: ${r.notifyChannelId ? `<#${r.notifyChannelId}>` : '*none*'}`,
+    ]),
+  ];
+
   return new EmbedBuilder()
     .setTitle('🧭 Quick Setup')
     .setDescription(
       `${serverOverview(i)}\n\n`
       + 'Pick a channel yourself, or let the bot create one for you. This only touches\n'
-      + 'the channel + on/off switch for each feature — use its own command for everything else.\n\n'
-      + `🎙️ **Join-to-Create** — Lobby: ${jc.lobbyChannelId ? `<#${jc.lobbyChannelId}>` : '*not set*'} • Category: ${cat ? `\`${cat.name}\`` : '*not set*'}\n`
-      + `📜 **Logs** — ${g.logsChannelId ? `<#${g.logsChannelId}>` : '*not set*'}\n`
-      + `👋 **Welcome** — ${w.channelId ? `<#${w.channelId}>` : '*not set*'} (${w.enabled ? 'enabled' : 'disabled'})\n`
-      + `🚪 **Goodbye** — ${gb.channelId ? `<#${gb.channelId}>` : '*not set*'} (${gb.enabled ? 'enabled' : 'disabled'})\n`
-      + `🍯 **Honeypot** — Trap: ${h.channelIds?.length ? h.channelIds.map(c => `<#${c}>`).join(', ') : '*not set*'} (${h.enabled ? 'deployed' : 'disabled'}) • Log: ${h.logChannelId ? `<#${h.logChannelId}>` : '*not set*'}\n`
-      + `🔗 **Invite Link** — ${g.inviteLink ? g.inviteLink : '*not set*'}\n`
-      + `✅ **Verify** — Role: ${g.verifyRoleId ? `<@&${g.verifyRoleId}>` : '*not set*'} • Log: ${g.verifyLogChannelId ? `<#${g.verifyLogChannelId}>` : '*not set*'}\n`
-      + `🎬 **Medal Clips** — ${g.medalForwardChannelId ? `<#${g.medalForwardChannelId}>` : '*not set*'}`,
+      + 'the channel + on/off switch for each feature — use its own command for everything else.',
     )
+    .addFields(fields)
     .setColor(colors.main)
     .setFooter({ text: 'Pick a feature below — you can configure them in any order' });
 }
@@ -69,6 +102,9 @@ function dashboardPanel() {
     row(
       new ButtonBuilder().setCustomId('setup:invite').setLabel('🔗 Invite Link').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('setup:medal').setLabel('🎬 Medal Clips').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setup:rust').setLabel('🔧 Rust Wipe Alerts').setStyle(ButtonStyle.Primary),
+    ),
+    row(
       new ButtonBuilder().setCustomId('setup:close').setLabel('✖️ Close').setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -233,6 +269,23 @@ module.exports = {
         components: [pickOrCreatePanel('setup:medalPick', 'setup:medalCreate', '✨ Create #medal-clips'), navRow()],
       });
     }
+    if (action === 'rust') {
+      const r = rustState(g);
+      ctx.save();
+      if (!r.mainServerId) {
+        return i.update({
+          content: '🔧 **Rust Wipe Alerts** — no main Rust server is set yet. Run `/rust server:<name>`, pick a suggestion, '
+            + 'then click **⭐ Set as Main Server** — then come back here to pick an alert channel.',
+          embeds: [],
+          components: [navRow()],
+        });
+      }
+      return i.update({
+        content: '🔧 **Rust Wipe Alerts** — pick an existing text or announcement channel, or have the bot create an announcement channel:',
+        embeds: [],
+        components: [pickOrCreatePanel('setup:rustPick', 'setup:rustCreate', '✨ Create #rust-wipes'), navRow()],
+      });
+    }
     /* ── "pick existing" buttons open a channel select ── */
     if (action === 'jtcLobbyPick') {
       const chans = voiceChannels(i, 25);
@@ -313,6 +366,12 @@ module.exports = {
       if (!chans.length) return err(i, 'No text channels found.');
       const sel = menu('setup:medalSel', '🎬 Pick the Medal clips channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🎬' })));
       return i.update({ content: '🎬 Pick the channel medal.tv links get forwarded to:', components: [row(sel), navRow()] });
+    }
+    if (action === 'rustPick') {
+      const chans = announceCapableChannels(i, 25);
+      if (!chans.length) return err(i, 'No text or announcement channels found.');
+      const sel = menu('setup:rustSel', '🔧 Pick the Rust wipe alert channel…', chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: c.type === ChannelType.GuildAnnouncement ? '📢' : '🔧' })));
+      return i.update({ content: '🔧 Pick the channel wipe alerts get posted to:', components: [row(sel), navRow()] });
     }
 
     /* ── "create for me" buttons act immediately, no picker needed — then back to the dashboard ── */
@@ -421,6 +480,13 @@ module.exports = {
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} — medal.tv links from any channel will be forwarded there.` });
     }
+    if (action === 'rustCreate') {
+      const ch = await i.guild.channels.create({ name: 'rust-wipes', type: ChannelType.GuildAnnouncement }).catch(() => null);
+      if (!ch) return err(i, "Couldn't create the channel — check my permissions (announcement channels need the Community feature enabled).");
+      rustState(g).notifyChannelId = ch.id;
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Created ${ch} — wipe alerts for this server's main Rust server will post there.` });
+    }
   },
 
   async onSelect(i, ctx) {
@@ -496,6 +562,11 @@ module.exports = {
       g.medalForwardChannelId = i.values[0];
       ctx.save();
       return i.update({ ...dashboardView(i, g), content: `✅ Medal.tv links from any channel will be forwarded to <#${g.medalForwardChannelId}>.` });
+    }
+    if (i.customId === 'setup:rustSel') {
+      rustState(g).notifyChannelId = i.values[0];
+      ctx.save();
+      return i.update({ ...dashboardView(i, g), content: `✅ Rust wipe alerts will post in <#${g.rust.notifyChannelId}>.` });
     }
   },
 
