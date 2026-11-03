@@ -311,6 +311,7 @@ module.exports = {
     }
   },
   async onSelect(i, ctx) {
+    const g = ctx.guild(i.guildId);
     if (i.customId === 'usr:purgeAmount') {
       if (!i.member.permissions.has(PermissionFlagsBits.ManageMessages)) return err(i, 'You need the **Manage Messages** permission.');
       const userId = i.client.purgeUsers?.get(i.user.id) ?? i.client.userPanels?.get(i.user.id);
@@ -328,7 +329,6 @@ module.exports = {
     const memberId = i.client.userPanels?.get(i.user.id);
     const member = memberId && await i.guild.members.fetch(memberId).catch(() => null);
     if (!member) return err(i, 'Session expired — run `/user` again.');
-    const g = ctx.guild(i.guildId);
 
     if (i.customId === 'usr:kickReason') {
       const reason = i.values[0];

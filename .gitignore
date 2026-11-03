@@ -3,3 +3,4 @@ node_modules/
 data.json
 data.json.bak*
 admin-log.txt
+cleanup-state.json

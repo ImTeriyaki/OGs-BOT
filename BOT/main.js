@@ -34,7 +34,7 @@ function defaultGuild() {
   return {
     welcome: msgDefaults('welcome'), goodbye: msgDefaults('goodbye'), tickets: {}, jtc: null, jointocreate: null,
     warns: {}, afk: {},
-    logsChannelId: null, modLogChannelId: null, medalForwardChannelId: null, counterIds: null,
+    logsChannelId: null, modLogChannelId: null, medalForwardChannelId: null, archiveChannelId: null, counterIds: null,
     ownerId: null, adminRoleId: null, rust: { mainServerId: null, notifyChannelId: null, lastWipeSeen: null },
   };
 }
@@ -345,7 +345,7 @@ async function updateCounters() {
   }
 }
 setInterval(() => updateCounters().catch(() => {}), 2 * 60 * 1000); // every 2 minutes
-setInterval(() => runCleanup(client, db, store.save, snipes, editSnipes, messageHistory).catch(() => {}), 6 * 60 * 60 * 1000); // every 6 hours
+setInterval(() => runCleanup(client, db, store.save, snipes, editSnipes, messageHistory).catch(() => {}), 6 * 60 * 60 * 1000); // checked every 6h, but runCleanup no-ops until a full week has passed
 
 /* presence updates fire constantly — throttle counters to once per minute */
 let presenceDirty = false;

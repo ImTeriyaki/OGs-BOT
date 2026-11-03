@@ -20,15 +20,22 @@ module.exports = {
         { label: 'Disable mod action logging', value: 'off', emoji: '❌' },
         ...chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🛡️', default: c.id === g.modLogChannelId })),
       );
+    const archiveSel = new StringSelectMenuBuilder().setCustomId('logs:archivePick').setPlaceholder('🗂️ Pick the weekly archive channel…')
+      .addOptions(
+        { label: 'Disable weekly archive', value: 'off', emoji: '❌' },
+        ...chans.map(c => ({ label: `#${c.name}`.slice(0, 100), value: c.id, emoji: '🗂️', default: c.id === g.archiveChannelId })),
+      );
     return i.reply({
       embeds: [new EmbedBuilder().setTitle('📜 Logs').setColor(colors.main)
         .setDescription([
           `**Error log:** ${g.logsChannelId ? `<#${g.logsChannelId}>` : '*disabled*'} — errors appear with codes like \`ERR-7F3A2B\`.`,
           `**Mod action log:** ${g.modLogChannelId ? `<#${g.modLogChannelId}>` : '*disabled*'} — styled embeds for ban/kick/mute/timeout/warn/etc.`,
+          `**Weekly archive:** ${g.archiveChannelId ? `<#${g.archiveChannelId}>` : '*disabled*'} — once a week, a downloadable file of that week's admin actions + edited/deleted messages.`,
         ].join('\n'))],
       components: [
         row(errSel),
         row(modSel),
+        row(archiveSel),
         row(
           new ButtonBuilder().setCustomId('logs:view').setLabel('🖨️ View Admin Log').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('logs:download').setLabel('📄 Download Admin Log').setStyle(ButtonStyle.Secondary),
@@ -43,6 +50,11 @@ module.exports = {
       g.modLogChannelId = i.values[0] === 'off' ? null : i.values[0];
       ctx.save();
       return i.update({ content: g.modLogChannelId ? `🛡️ Mod actions will be logged in <#${g.modLogChannelId}>.` : '🛡️ Mod action logging disabled.', components: [] });
+    }
+    if (i.customId === 'logs:archivePick') {
+      g.archiveChannelId = i.values[0] === 'off' ? null : i.values[0];
+      ctx.save();
+      return i.update({ content: g.archiveChannelId ? `🗂️ A weekly archive will be posted in <#${g.archiveChannelId}>.` : '🗂️ Weekly archive disabled.', components: [] });
     }
     g.logsChannelId = i.values[0] === 'off' ? null : i.values[0];
     ctx.save();
