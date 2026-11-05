@@ -12,7 +12,7 @@ module.exports = {
         .setAuthor({ name: s.author, iconURL: s.avatar })
         .setDescription(s.content || '*no text*')
         .setImage(s.image)
-        .setFooter({ text: 'Deleted' })
+        .setFooter({ text: s.deletedBy ? `Deleted by ${s.deletedBy}` : 'Deleted' })
         .setTimestamp(s.at)
         .setColor(colors.main)],
       ephemeral: true,

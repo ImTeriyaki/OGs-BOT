@@ -1,6 +1,6 @@
 const {
   Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ChannelType, PermissionFlagsBits,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent,
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
@@ -8,7 +8,7 @@ const path = require('path');
 const {
   commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward, registerRustWipeWatcher,
 } = require('./commands/index.js');
-const { msgDefaults, BOT_VERSION } = require('./commands/_shared');
+const { msgDefaults, BOT_VERSION, colors } = require('./commands/_shared');
 const { runCleanup } = require('./cleanup');
 
 
@@ -258,21 +258,55 @@ client.on(Events.GuildMemberRemove, async (member) => {
   updateCounters().catch(() => {});
 });
 
-/* snipe storage */
-client.on(Events.MessageDelete, (msg) => {
+/* Discord never includes "who deleted this" on the delete event itself — the only way to
+   find out is the audit log, and only when someone OTHER than the author deleted it (a
+   self-delete leaves no audit entry at all, so "not found" here just means "the author"). */
+async function resolveDeleter(guild, msg) {
+  try {
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 5 });
+    const entry = logs.entries.find(e =>
+      e.target?.id === msg.author.id
+      && e.extra?.channel?.id === msg.channel.id
+      && Date.now() - e.createdTimestamp < 10_000);
+    return entry?.executor ?? null;
+  } catch {
+    return null; // missing "View Audit Log" permission, or nothing matched
+  }
+}
+
+/* snipe storage + live mod-log embed */
+client.on(Events.MessageDelete, async (msg) => {
   if (!msg.guild || msg.author?.bot) return;
+  const deleter = await resolveDeleter(msg.guild, msg);
   const event = {
     type: 'deleted',
     author: msg.author.username,
     avatar: msg.author.displayAvatarURL(),
     content: msg.content,
     image: msg.attachments.first()?.url ?? null,
+    deletedBy: deleter && deleter.id !== msg.author.id ? deleter.tag : null,
     at: Date.now(),
   };
   snipes.set(msg.channel.id, event);
   recordMessageHistory(msg.channel.id, event);
+
+  const g = store.guild(msg.guild.id);
+  if (!g.modLogChannelId) return;
+  const ch = await msg.guild.channels.fetch(g.modLogChannelId).catch(() => null);
+  if (!ch) return;
+  const embed = new EmbedBuilder()
+    .setTitle('🗑️ MESSAGE DELETED')
+    .setColor(colors.bad)
+    .setDescription([
+      `**Original Sender:** ${msg.author} (${msg.author.tag})`,
+      `**Deleted By:** ${event.deletedBy ? `${deleter} (${event.deletedBy})` : '*the author*'}`,
+      `**Channel:** ${msg.channel}`,
+    ].join('\n'))
+    .addFields({ name: 'Content', value: (msg.content || '*no text content*').slice(0, 1024) })
+    .setTimestamp();
+  await ch.send({ embeds: [embed] }).catch(() => {});
 });
-client.on(Events.MessageUpdate, (oldM, newM) => {
+client.on(Events.MessageUpdate, async (oldM, newM) => {
   if (!newM.guild || newM.author?.bot || oldM.content === newM.content) return;
   const event = {
     type: 'edited',
@@ -284,6 +318,22 @@ client.on(Events.MessageUpdate, (oldM, newM) => {
   };
   editSnipes.set(newM.channel.id, event);
   recordMessageHistory(newM.channel.id, event);
+
+  const g = store.guild(newM.guild.id);
+  if (!g.modLogChannelId) return;
+  const ch = await newM.guild.channels.fetch(g.modLogChannelId).catch(() => null);
+  if (!ch) return;
+  const embed = new EmbedBuilder()
+    .setTitle('✏️ MESSAGE EDITED')
+    .setColor(colors.warn)
+    .setDescription(`**Original Sender:** ${newM.author} (${newM.author.tag})\n**Channel:** ${newM.channel}`)
+    .addFields(
+      { name: 'Before', value: (oldM.content || '*empty*').slice(0, 1024) },
+      { name: 'After', value: (newM.content || '*empty*').slice(0, 1024) },
+    )
+    .setFooter({ text: 'Only the author can edit their own message' })
+    .setTimestamp();
+  await ch.send({ embeds: [embed] }).catch(() => {});
 });
 
 /* AFK notice + auto-clear */

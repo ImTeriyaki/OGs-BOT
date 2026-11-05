@@ -29,7 +29,7 @@ module.exports = {
       embeds: [new EmbedBuilder().setTitle('📜 Logs').setColor(colors.main)
         .setDescription([
           `**Error log:** ${g.logsChannelId ? `<#${g.logsChannelId}>` : '*disabled*'} — errors appear with codes like \`ERR-7F3A2B\`.`,
-          `**Mod action log:** ${g.modLogChannelId ? `<#${g.modLogChannelId}>` : '*disabled*'} — styled embeds for ban/kick/mute/timeout/warn/etc.`,
+          `**Mod action log:** ${g.modLogChannelId ? `<#${g.modLogChannelId}>` : '*disabled*'} — styled embeds for ban/kick/mute/timeout/warn/etc., plus live message edit/delete alerts.`,
           `**Weekly archive:** ${g.archiveChannelId ? `<#${g.archiveChannelId}>` : '*disabled*'} — once a week, a downloadable file of that week's admin actions + edited/deleted messages.`,
         ].join('\n'))],
       components: [

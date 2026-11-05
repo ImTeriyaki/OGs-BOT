@@ -108,7 +108,7 @@ async function sendGuildArchive(client, guild, g, messageHistory) {
       if (e.type === 'edited') {
         edits.push(`[${when}] #${ch.name} — ${e.author}\n  before: ${e.before.replace(/\n/g, ' ')}\n  after:  ${e.after.replace(/\n/g, ' ')}`);
       } else {
-        deletes.push(`[${when}] #${ch.name} — ${e.author}\n  content: ${e.content.replace(/\n/g, ' ')}`);
+        deletes.push(`[${when}] #${ch.name} — ${e.author}${e.deletedBy ? ` (deleted by ${e.deletedBy})` : ''}\n  content: ${e.content.replace(/\n/g, ' ')}`);
       }
     }
   }
