@@ -41,9 +41,19 @@ const rolesMenu = (i) =>
    so admins have a plain-text trail they can view or download — see /logs' buttons. */
 const ADMIN_LOG_PATH = path.join(__dirname, '..', '..', 'admin-log.txt');
 
-function logAdmin(i, action, detail = '') {
-  const line = `[${new Date().toISOString()}] guild:${i.guildId} (${i.guild?.name ?? 'unknown'}) | ${i.user.tag} (${i.user.id}) | ${action}${detail ? ' — ' + detail : ''}\n`;
+function appendLog(guildId, guildName, actorTag, actorId, action, detail) {
+  const line = `[${new Date().toISOString()}] guild:${guildId} (${guildName ?? 'unknown'}) | ${actorTag} (${actorId}) | ${action}${detail ? ' — ' + detail : ''}\n`;
   fs.appendFile(ADMIN_LOG_PATH, line, () => {});
+}
+
+function logAdmin(i, action, detail = '') {
+  appendLog(i.guildId, i.guild?.name, i.user.tag, i.user.id, action, detail);
+}
+
+/* same log, for events that come from a gateway listener (message edit/delete) rather
+   than an interaction — there's no "i" to pull guild/user off of */
+function logGuildEvent(guild, user, action, detail = '') {
+  appendLog(guild.id, guild.name, user.tag, user.id, action, detail);
 }
 
 /* lines for one guild only — the log file is shared across every guild the bot is in */
@@ -184,5 +194,5 @@ function msgChannelRow(ns, i, s) {
 module.exports = {
   colors, row, err, menu, textChannels, announceCapableChannels, voiceChannels, categories, rolesMenu, formatDuration, BOT_VERSION,
   WELCOME_TEMPLATES, GOODBYE_TEMPLATES, MSG_COLORS, msgDefaults, msgState, msgPreview, msgChannelRow,
-  logAdmin, readAdminLog, ADMIN_LOG_PATH, recordAdminAction,
+  logAdmin, logGuildEvent, readAdminLog, ADMIN_LOG_PATH, recordAdminAction,
 };

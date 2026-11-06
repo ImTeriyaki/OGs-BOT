@@ -8,7 +8,7 @@ const path = require('path');
 const {
   commands, registerJoinToCreate, registerHoneypot, registerDmMessages, registerMedalForward, registerRustWipeWatcher,
 } = require('./commands/index.js');
-const { msgDefaults, BOT_VERSION, colors } = require('./commands/_shared');
+const { msgDefaults, BOT_VERSION, colors, logGuildEvent } = require('./commands/_shared');
 const { runCleanup } = require('./cleanup');
 
 
@@ -289,6 +289,8 @@ client.on(Events.MessageDelete, async (msg) => {
   };
   snipes.set(msg.channel.id, event);
   recordMessageHistory(msg.channel.id, event);
+  logGuildEvent(msg.guild, deleter && deleter.id !== msg.author.id ? deleter : msg.author, 'message-delete',
+    `sender: ${msg.author.tag} (${msg.author.id}) in #${msg.channel.name}: "${(msg.content || '*no text content*').slice(0, 300)}"`);
 
   const g = store.guild(msg.guild.id);
   if (!g.modLogChannelId) return;
@@ -318,6 +320,8 @@ client.on(Events.MessageUpdate, async (oldM, newM) => {
   };
   editSnipes.set(newM.channel.id, event);
   recordMessageHistory(newM.channel.id, event);
+  logGuildEvent(newM.guild, newM.author, 'message-edit',
+    `in #${newM.channel.name} — before: "${(oldM.content || '*empty*').slice(0, 300)}" | after: "${(newM.content || '*empty*').slice(0, 300)}"`);
 
   const g = store.guild(newM.guild.id);
   if (!g.modLogChannelId) return;
